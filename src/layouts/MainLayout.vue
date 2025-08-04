@@ -4,9 +4,9 @@
       <q-toolbar>
         <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
 
-        <q-toolbar-title> Quasar App </q-toolbar-title>
+        <q-toolbar-title> Drink Calendar</q-toolbar-title>
 
-        <div>Quasar v{{ $q.version }}</div>
+        <div> v 1.0 </div>
       </q-toolbar>
     </q-header>
 
@@ -14,7 +14,12 @@
       <q-list>
         <q-item-label header> Essential Links </q-item-label>
 
-        <EssentialLink v-for="link in linksList" :key="link.title" v-bind="link" />
+        <NavigationLink
+          v-for="link in linksList"
+          :key="link.title"
+          v-bind="link"
+          @navigate="closeDrawer"
+        />
       </q-list>
     </q-drawer>
 
@@ -26,50 +31,38 @@
 
 <script setup>
 import { ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
+import NavigationLink from 'components/NavigationLink.vue'
 
 const linksList = [
+  {
+    title: 'Home',
+    caption: 'Drink counter calendar',
+    icon: 'home',
+    link: '/',
+  },
+  {
+    title: 'Personal Data',
+    caption: 'Manage your personal information',
+    icon: 'person',
+    link: '/personal-data',
+  },
   {
     title: 'Docs',
     caption: 'quasar.dev',
     icon: 'school',
-    link: 'https://quasar.dev',
+    link: '#',
   },
   {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
+    title: 'Path2Help - Drug & Alcohol Support',
+    caption: 'Free confidential support - adf.org.au',
+    icon: 'support_agent',
+    link: 'https://adf.org.au/help-support/path2help/',
   },
   {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev',
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev',
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev',
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev',
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev',
+    title: 'Statistics',
+    caption: 'View your drinking statistics',
+    icon: 'analytics',
+    link: '/statistics',
   },
 ]
 
@@ -77,5 +70,9 @@ const leftDrawerOpen = ref(false)
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
+}
+
+function closeDrawer() {
+  leftDrawerOpen.value = false
 }
 </script>

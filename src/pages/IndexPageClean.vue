@@ -544,12 +544,12 @@ const optionsFn = computed(() => {
 })
 
 const currentDateBeverages = computed(() => {
-  const drinks = drinksStore.getDateBeverages(selectedDate.value)
+  const drinks = drinksStore.getDateDrinks(selectedDate.value)
   return drinks
 })
 
 const currentDateCounter = computed(() => {
-  return drinksStore.getDrinkCount(selectedDate.value)
+  return drinksStore.getDateTotal(selectedDate.value)
 })
 
 const currentMonthStats = computed(() => {
@@ -600,18 +600,18 @@ const onDateSelect = (newDate) => {
 }
 
 const incrementCounter = () => {
-  drinksStore.incrementDrinkCount(selectedDate.value)
+  drinksStore.addDrink(selectedDate.value, 'manual', 1)
 }
 
 const decrementCounter = () => {
   if (currentDateCounter.value > 0) {
-    drinksStore.decrementDrinkCount(selectedDate.value)
+    drinksStore.removeDrink(selectedDate.value, 'manual', 1)
   }
 }
 
 const addSelectedBeverage = () => {
   if (selectedBeverage.value) {
-    drinksStore.addBeverage(selectedDate.value, selectedBeverage.value)
+    drinksStore.addBeverage(selectedDate.value, selectedBeverage.value.id)
     selectedBeverage.value = null
   }
 }
@@ -662,7 +662,7 @@ const cancelCustomBeverage = () => {
 }
 
 const deleteCustomBeverage = (beverageId) => {
-  drinksStore.deleteBeverage(beverageId)
+  drinksStore.deleteCustomBeverage(beverageId)
 }
 
 const resetOriginalBeverages = () => {
@@ -684,11 +684,7 @@ const onDragOver = (evt) => {
 const onDrop = (evt, targetIndex) => {
   evt.preventDefault()
   if (draggedIndex.value !== null && draggedIndex.value !== targetIndex) {
-    // Create new order by moving the item
-    const newOrder = [...beverageData.value]
-    const [movedItem] = newOrder.splice(draggedIndex.value, 1)
-    newOrder.splice(targetIndex, 0, movedItem)
-    drinksStore.reorderBeverages(newOrder)
+    drinksStore.moveBeverage(draggedIndex.value, targetIndex)
   }
   draggedIndex.value = null
 }
