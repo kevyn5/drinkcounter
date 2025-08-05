@@ -39,13 +39,13 @@ export default defineConfig((ctx) => {
       },
 
       vueRouterMode: 'hash', // available values: 'hash', 'history'
-      // vueRouterBase,
+      vueRouterBase: process.env.NODE_ENV === 'production' ? '/drinkcounter/' : '/',
       // vueDevtools,
       // vueOptionsAPI: false,
 
       // rebuildCache: true, // rebuilds Vite/linter/etc cache on startup
 
-      // publicPath: '/',
+      publicPath: process.env.NODE_ENV === 'production' ? '/drinkcounter/' : '/',
       // analyze: true,
       // env: {},
       // rawDefine: {}
