@@ -387,9 +387,12 @@
             <q-input
               filled
               v-model="customBeverage.volume"
-              label="Volume (e.g., '355ml', '12 fl oz (355ml)') *"
+              label="Volume in ml (e.g., '355ml', '500ml') *"
               lazy-rules
-              :rules="[ val => val && val.length > 0 || 'Please enter volume']"
+              :rules="[
+                val => val && val.length > 0 || 'Please enter volume',
+                val => /^\d+(\.\d+)?\s*ml$/i.test(val.trim()) || 'Please enter volume in ml format (e.g., 355ml)'
+              ]"
             />
 
             <q-input
@@ -712,10 +715,13 @@ const getWeightGainClass = (kg) => {
 // Watch for customBeverage changes to auto-calculate standard drinks
 watch([() => customBeverage.value.volume, () => customBeverage.value.alcoholPercent], () => {
   if (customBeverage.value.volume && customBeverage.value.alcoholPercent) {
-    const volumeMatch = customBeverage.value.volume.match(/(\d+)/);
-    if (volumeMatch) {
-      const volume = parseInt(volumeMatch[1]);
-      const standardDrinks = (volume * customBeverage.value.alcoholPercent * 0.789) / 10;
+    // Use the store's volume extraction function for consistency
+    const volume = drinksStore.extractVolumeInMl(customBeverage.value.volume);
+    if (volume > 0) {
+      // Standard drink formula: (Volume in ml × Alcohol % × 0.789) / 100 / 10
+      // 0.789 is the density of ethanol, 10g is one standard drink
+      const pureAlcoholGrams = (volume * customBeverage.value.alcoholPercent * 0.789) / 100;
+      const standardDrinks = pureAlcoholGrams / 10;
       customBeverage.value.standardDrinks = Math.round(standardDrinks * 10) / 10;
     }
   }

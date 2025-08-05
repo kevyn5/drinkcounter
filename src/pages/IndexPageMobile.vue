@@ -2,16 +2,13 @@
   <q-page class="q-pa-sm q-pa-md-md">
     <!-- Header with Layout Toggle -->
     <div class="q-mb-sm q-mb-md-md">
-      <div class="row items-center justify-between">
-        <div class="col">
-          <h4 class="text-center q-my-sm q-my-md-md">Drink Counter Calendar</h4>
-        </div>
+      <div class="row items-center justify-end">
         <div class="col-auto">
           <!-- Layout Toggle -->
           <q-btn-group flat class="q-mr-sm">
-            <q-btn 
-              flat 
-              dense 
+            <q-btn
+              flat
+              dense
               :icon="layoutStore.getLayoutMode() === 'auto' ? 'devices' : layoutStore.getLayoutMode() === 'mobile' ? 'phone_android' : 'desktop_windows'"
               :color="layoutStore.getLayoutMode() !== 'auto' ? 'primary' : 'grey-6'"
               @click="toggleLayout"
@@ -41,24 +38,8 @@
               :events="calendarEventDates"
               class="full-width drink-calendar"
               :landscape="$q.screen.gt.xs"
-            >
-              <template v-slot:default="{ scope }">
-                <div 
-                  :class="getDayClass(scope.timestamp.date)"
-                  class="calendar-day-content"
-                >
-                  {{ scope.timestamp.day }}
-                  <div 
-                    v-if="getDrinkCountForDate(scope.timestamp.date) > 0"
-                    :class="getDrinkIndicatorClass(getDrinkCountForDate(scope.timestamp.date))"
-                    class="drink-indicator"
-                  >
-                    {{ getDrinkCountForDate(scope.timestamp.date) }}
-                  </div>
-                </div>
-              </template>
-            </q-date>
-            
+            />
+
             <!-- Calendar Legend (smaller for mobile) -->
             <div class="row q-gutter-xs q-mt-sm justify-center">
               <div class="row items-center">
@@ -67,19 +48,19 @@
               </div>
               <div class="row items-center">
                 <div class="calendar-legend-dot bg-green-4"></div>
-                <span class="text-caption q-ml-xs text-grey-7">1-2</span>
-              </div>
-              <div class="row items-center">
-                <div class="calendar-legend-dot bg-yellow-6"></div>
-                <span class="text-caption q-ml-xs text-grey-7">3-4</span>
+                <span class="text-caption q-ml-xs text-grey-7">1-4</span>
               </div>
               <div class="row items-center">
                 <div class="calendar-legend-dot bg-orange-6"></div>
-                <span class="text-caption q-ml-xs text-grey-7">5-6</span>
+                <span class="text-caption q-ml-xs text-grey-7">5-8</span>
               </div>
               <div class="row items-center">
                 <div class="calendar-legend-dot bg-red-6"></div>
-                <span class="text-caption q-ml-xs text-grey-7">7+</span>
+                <span class="text-caption q-ml-xs text-grey-7">9-12</span>
+              </div>
+              <div class="row items-center">
+                <div class="calendar-legend-dot bg-black"></div>
+                <span class="text-caption q-ml-xs text-grey-7">12+</span>
               </div>
             </div>
           </q-card-section>
@@ -173,161 +154,6 @@
               </div>
             </q-card-section>
           </q-card>
-        </div>
-      </div>
-
-      <!-- Right Column: Beverage Guide and Counter -->
-      <div class="col-12 col-lg-4">
-        <!-- Beverage Reference Guide - Mobile Optimized -->
-        <q-card class="q-mb-md">
-          <q-card-section class="q-pa-sm q-pa-md-md">
-            <h6 class="q-my-xs q-my-sm-md text-center">Beverage Guide</h6>
-
-            <!-- Mobile: Card List View -->
-            <div v-if="$q.screen.lt.md" class="q-gutter-xs">
-              <q-card
-                v-for="(beverage, index) in beverageData"
-                :key="beverage.id"
-                flat
-                bordered
-                class="cursor-pointer draggable-card"
-                draggable="true"
-                @dragstart="startDrag($event, index)"
-                @dragover.prevent="onDragOver($event)"
-                @drop="onDrop($event, index)"
-                @dragend="onDragEnd($event)"
-                @dblclick="editBeverage(beverage)"
-              >
-                <q-card-section class="q-pa-sm">
-                  <div class="row items-center">
-                    <div class="col-8">
-                      <div class="text-weight-medium text-body2">{{ beverage.name }}</div>
-                      <div class="text-caption text-grey-6">
-                        {{ beverage.volume }} • {{ beverage.alcoholPercent }}% • {{ beverage.standardDrinks }} std • {{ beverage.calories }} cal
-                      </div>
-                    </div>
-                    <div class="col-4 text-right">
-                      <q-btn
-                        flat
-                        round
-                        color="primary"
-                        icon="edit"
-                        size="sm"
-                        @click.stop="editBeverage(beverage)"
-                      />
-                      <q-btn
-                        v-if="beverage.type === 'Custom'"
-                        flat
-                        round
-                        color="negative"
-                        icon="delete"
-                        size="sm"
-                        @click.stop="deleteCustomBeverage(beverage.id)"
-                      />
-                    </div>
-                  </div>
-                </q-card-section>
-              </q-card>
-            </div>
-
-            <!-- Desktop: Table View -->
-            <q-table
-              v-else
-              :rows="beverageData"
-              :columns="beverageColumns"
-              row-key="id"
-              flat
-              dense
-              :rows-per-page="0"
-              :rows-per-page-options="[0]"
-              hide-pagination
-              @row-dblclick="onRowDblClick"
-            >
-              <template v-slot:body="props">
-                <q-tr
-                  :props="props"
-                  draggable="true"
-                  @dragstart="startDrag($event, props.rowIndex)"
-                  @dragover.prevent="onDragOver($event)"
-                  @drop="onDrop($event, props.rowIndex)"
-                  @dragend="onDragEnd($event)"
-                  class="draggable-row"
-                >
-                  <q-td
-                    v-for="col in props.cols"
-                    :key="col.name"
-                    :props="props"
-                    :class="col.classes"
-                    :style="col.style"
-                  >
-                    <template v-if="col.name === 'name'">
-                      <div class="text-weight-medium">{{ col.value }}</div>
-                    </template>
-                    <template v-else-if="col.name === 'alcoholPercent'">
-                      <q-badge color="blue" :label="`${col.value}%`" />
-                    </template>
-                    <template v-else-if="col.name === 'standardDrinks'">
-                      <q-badge
-                        :color="col.value > 1 ? 'orange' : 'green'"
-                        :label="`${col.value}`"
-                      />
-                    </template>
-                    <template v-else-if="col.name === 'calories'">
-                      <span class="text-weight-medium">{{ col.value }}</span>
-                    </template>
-                    <template v-else-if="col.name === 'actions'">
-                      <div class="q-gutter-xs">
-                        <q-btn
-                          flat
-                          round
-                          color="primary"
-                          icon="edit"
-                          size="sm"
-                          @click="editBeverage(props.row)"
-                        />
-                        <q-btn
-                          v-if="props.row.type === 'Custom'"
-                          flat
-                          round
-                          color="negative"
-                          icon="delete"
-                          size="sm"
-                          @click="deleteCustomBeverage(props.row.id)"
-                        />
-                      </div>
-                    </template>
-                    <template v-else>
-                      {{ col.value }}
-                    </template>
-                  </q-td>
-                </q-tr>
-              </template>
-            </q-table>
-          </q-card-section>
-        </q-card>
-
-        <!-- Add Custom Beverage Button -->
-        <div class="text-center q-mb-md">
-          <q-btn
-            color="primary"
-            icon="add"
-            :label="$q.screen.lt.md ? 'Add Beverage' : 'Add Custom Beverage'"
-            @click="openAddBeverageDialog"
-            outline
-            :size="$q.screen.lt.md ? 'md' : 'lg'"
-          />
-        </div>
-
-        <!-- Reset Button -->
-        <div class="text-center">
-          <q-btn
-            color="grey"
-            icon="restore"
-            :label="$q.screen.lt.md ? 'Reset' : 'Reset to Defaults'"
-            @click="resetOriginalBeverages"
-            flat
-            :size="$q.screen.lt.md ? 'sm' : 'md'"
-          />
         </div>
       </div>
     </div>
@@ -522,88 +348,6 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
-    <!-- Custom Beverage Dialog -->
-    <q-dialog v-model="showCustomBeverageDialog" persistent>
-      <q-card style="min-width: 400px;">
-        <q-card-section>
-          <div class="text-h6">{{ isEditingBeverage ? 'Edit' : 'Add' }} Custom Beverage</div>
-        </q-card-section>
-
-        <q-card-section>
-          <q-form @submit="saveCustomBeverage" class="q-gutter-md">
-            <q-input
-              filled
-              v-model="customBeverage.name"
-              label="Beverage Name *"
-              lazy-rules
-              :rules="[ val => val && val.length > 0 || 'Please enter a name']"
-            />
-
-            <q-input
-              filled
-              v-model="customBeverage.volume"
-              label="Volume (e.g., '355ml', '12 fl oz (355ml)') *"
-              lazy-rules
-              :rules="[ val => val && val.length > 0 || 'Please enter volume']"
-            />
-
-            <q-input
-              filled
-              v-model.number="customBeverage.alcoholPercent"
-              type="number"
-              label="Alcohol Percentage *"
-              suffix="%"
-              step="0.1"
-              min="0"
-              max="100"
-              lazy-rules
-              :rules="[
-                val => val !== null || 'Please enter alcohol percentage',
-                val => val >= 0 && val <= 100 || 'Please enter a valid percentage (0-100)'
-              ]"
-            />
-
-            <q-input
-              filled
-              v-model.number="customBeverage.standardDrinks"
-              type="number"
-              label="Standard Drinks"
-              step="0.1"
-              min="0"
-              hint="Leave empty to calculate automatically"
-            />
-
-            <q-input
-              filled
-              v-model.number="customBeverage.calories"
-              type="number"
-              label="Calories per serving"
-              min="0"
-              hint="Leave empty to estimate automatically"
-            />
-
-            <q-input
-              filled
-              v-model="customBeverage.description"
-              label="Description (optional)"
-              type="textarea"
-              rows="2"
-            />
-          </q-form>
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="primary" @click="cancelCustomBeverage" />
-          <q-btn
-            flat
-            :label="isEditingBeverage ? 'Update' : 'Save'"
-            color="primary"
-            @click="saveCustomBeverage"
-          />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
   </q-page>
 </template>
 
@@ -630,9 +374,9 @@ const toggleLayout = () => {
   const modes = ['auto', 'desktop', 'mobile']
   const currentIndex = modes.indexOf(currentMode)
   const nextMode = modes[(currentIndex + 1) % modes.length]
-  
+
   layoutStore.setLayoutMode(nextMode)
-  
+
   // Force page refresh to apply new layout
   window.location.reload()
 }
@@ -641,7 +385,6 @@ const toggleLayout = () => {
 const selectedDate = ref(date.formatDate(new Date(), 'YYYY/MM/DD'))
 const selectedBeverage = ref(null)
 const showCounterDialog = ref(false)
-const showCustomBeverageDialog = ref(false)
 const customBeverage = ref({
   name: '',
   volume: '',
@@ -651,8 +394,6 @@ const customBeverage = ref({
   description: '',
   type: 'Custom'
 })
-const isEditingBeverage = ref(false)
-const editingBeverageId = ref(null)
 
 // Computed properties
 const beverageData = computed(() => drinksStore.beverages)
@@ -691,8 +432,27 @@ const calendarEventDates = computed(() => {
       // Convert date format from YYYY/MM/DD to YYYY/MM/DD for q-date
       const dateParts = dateKey.split('/')
       const formattedDate = `${dateParts[0]}/${dateParts[1].padStart(2, '0')}/${dateParts[2].padStart(2, '0')}`
-      
-      events.push(formattedDate)
+
+      // Determine color and class based on drink count
+      let color = 'green'
+      let cssClass = 'drink-level-low'
+      if (drinkCount > 12) {
+        color = 'black'
+        cssClass = 'drink-level-extreme'
+      } else if (drinkCount > 8) {
+        color = 'red'
+        cssClass = 'drink-level-high'
+      } else if (drinkCount > 4) {
+        color = 'orange'
+        cssClass = 'drink-level-medium'
+      }
+
+      events.push({
+        date: formattedDate,
+        color: color,
+        cssClass: cssClass,
+        drinkCount: drinkCount
+      })
     }
   })
 
@@ -705,25 +465,22 @@ const hasPersonalData = computed(() => {
 
 const alcoholCaloriePercentage = computed(() => {
   if (!hasPersonalData.value || !currentMonthStats.value) return null
-  
+
   const dailyCalorieNeeds = personalDataStore.getDailyCalorieNeeds()
   const monthDays = new Date(new Date(selectedDate.value).getFullYear(), new Date(selectedDate.value).getMonth() + 1, 0).getDate()
   const monthlyCalorieNeeds = dailyCalorieNeeds * monthDays
-  
+
   return (currentMonthStats.value.totalCalories / monthlyCalorieNeeds) * 100
 })
 
 const monthlyWeightGain = computed(() => {
   if (!hasPersonalData.value || !currentMonthStats.value) return null
-  return personalDataStore.getMonthlyWeightGain(currentMonthStats.value.totalCalories)
+  return personalDataStore.getMonthlyWeightGain(currentMonthStats.value)
 })
 
 const annualWeightGainProjection = computed(() => {
-  if (!monthlyWeightGain.value) return null
-  return {
-    kg: (monthlyWeightGain.value.kg * 12).toFixed(1),
-    calories: monthlyWeightGain.value.calories * 12
-  }
+  if (!hasPersonalData.value || !currentMonthStats.value) return null
+  return personalDataStore.getAnnualWeightGainProjection(currentMonthStats.value)
 })
 
 const currentMonthCaloriePercentage = computed(() => alcoholCaloriePercentage.value)
@@ -737,29 +494,7 @@ const formatSelectedDate = computed(() => {
 // Methods
 const onDateSelect = (newDate) => {
   selectedDate.value = newDate
-}
-
-// Calendar color coding helper methods
-const getDrinkCountForDate = (dateString) => {
-  // Convert from YYYY-MM-DD to YYYY/MM/DD format
-  const formattedDate = dateString.replace(/-/g, '/')
-  return drinksStore.getDrinkCount(formattedDate)
-}
-
-const getDayClass = (dateString) => {
-  const drinkCount = getDrinkCountForDate(dateString)
-  if (drinkCount === 0) return 'calendar-day-none'
-  if (drinkCount <= 2) return 'calendar-day-low'
-  if (drinkCount <= 4) return 'calendar-day-medium'
-  if (drinkCount <= 6) return 'calendar-day-high'
-  return 'calendar-day-very-high'
-}
-
-const getDrinkIndicatorClass = (drinkCount) => {
-  if (drinkCount <= 2) return 'drink-indicator-green'
-  if (drinkCount <= 4) return 'drink-indicator-yellow'
-  if (drinkCount <= 6) return 'drink-indicator-orange'
-  return 'drink-indicator-red'
+  showCounterDialog.value = true
 }
 
 const incrementCounter = () => {
@@ -783,51 +518,6 @@ const removeSelectedBeverage = (beverageId) => {
   drinksStore.removeBeverage(selectedDate.value, beverageId)
 }
 
-const editBeverage = (beverage) => {
-  isEditingBeverage.value = true
-  editingBeverageId.value = beverage.id
-  customBeverage.value = { ...beverage }
-  showCustomBeverageDialog.value = true
-}
-
-const openAddBeverageDialog = () => {
-  isEditingBeverage.value = false
-  editingBeverageId.value = null
-  customBeverage.value = {
-    name: '',
-    volume: '',
-    alcoholPercent: 0,
-    standardDrinks: 0,
-    calories: 0,
-    description: '',
-    type: 'Custom'
-  }
-  showCustomBeverageDialog.value = true
-}
-
-const saveCustomBeverage = () => {
-  if (customBeverage.value.name && customBeverage.value.volume && customBeverage.value.alcoholPercent >= 0) {
-    if (isEditingBeverage.value) {
-      drinksStore.updateBeverage(editingBeverageId.value, customBeverage.value)
-    } else {
-      drinksStore.addCustomBeverage(customBeverage.value)
-    }
-    showCustomBeverageDialog.value = false
-  }
-}
-
-const cancelCustomBeverage = () => {
-  showCustomBeverageDialog.value = false
-}
-
-const deleteCustomBeverage = (beverageId) => {
-  drinksStore.deleteBeverage(beverageId)
-}
-
-const resetOriginalBeverages = () => {
-  drinksStore.resetOriginalBeverages()
-}
-
 // Helper methods
 const getCaloriePercentageClass = (percentage) => {
   if (percentage > 20) return 'text-red'
@@ -846,18 +536,103 @@ const getWeightGainClass = (kg) => {
 // Watch for customBeverage changes to auto-calculate standard drinks
 watch([() => customBeverage.value.volume, () => customBeverage.value.alcoholPercent], () => {
   if (customBeverage.value.volume && customBeverage.value.alcoholPercent) {
-    const volumeMatch = customBeverage.value.volume.match(/(\d+)/);
-    if (volumeMatch) {
-      const volume = parseInt(volumeMatch[1]);
-      const standardDrinks = (volume * customBeverage.value.alcoholPercent * 0.789) / 10;
+    // Use the store's volume extraction function for consistency
+    const volume = drinksStore.extractVolumeInMl(customBeverage.value.volume);
+    if (volume > 0) {
+      // Standard drink formula: (Volume in ml × Alcohol % × 0.789) / 100 / 10
+      // 0.789 is the density of ethanol, 10g is one standard drink
+      const pureAlcoholGrams = (volume * customBeverage.value.alcoholPercent * 0.789) / 100;
+      const standardDrinks = pureAlcoholGrams / 10;
       customBeverage.value.standardDrinks = Math.round(standardDrinks * 10) / 10;
     }
   }
 })
 
+// Watch for calendar events changes and apply styling
+const applyCalendarStyling = () => {
+  setTimeout(() => {
+    const calendarElement = document.querySelector('.drink-calendar')
+    if (!calendarElement) return
+
+    // Get all event data
+    const eventsByDate = {}
+    calendarEventDates.value.forEach(event => {
+      eventsByDate[event.date] = event
+    })
+
+    // Find all calendar date buttons
+    const dateButtons = calendarElement.querySelectorAll('.q-date__calendar-item .q-btn')
+    dateButtons.forEach(button => {
+      const dateText = button.textContent?.trim()
+      if (!dateText) return
+
+      // Get current displayed month/year from the calendar
+      const calendarTitle = calendarElement.querySelector('.q-date__header-title')?.textContent
+      if (!calendarTitle) return
+
+      // Parse the current month/year (format varies by locale)
+      const currentDate = new Date(selectedDate.value)
+      const year = currentDate.getFullYear()
+      const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
+      const day = dateText.padStart(2, '0')
+      const fullDate = `${year}/${month}/${day}`
+
+      // Check if this date has drink data
+      const eventData = eventsByDate[fullDate]
+      if (eventData) {
+        // Remove any existing drink-level classes
+        button.classList.remove('drink-level-low', 'drink-level-medium', 'drink-level-high', 'drink-level-extreme')
+
+        // Apply styling based on drink count
+        const drinkCount = eventData.drinkCount
+        let bgColor, textColor, fontWeight = '600'
+
+        if (drinkCount > 12) {
+          bgColor = 'rgba(0, 0, 0, 0.8)' // Stronger black to match legend
+          textColor = 'white'
+          fontWeight = '700'
+        } else if (drinkCount > 8) {
+          bgColor = 'rgba(244, 67, 54, 0.7)' // Stronger red to match legend
+          textColor = 'white'
+          fontWeight = '700'
+        } else if (drinkCount > 4) {
+          bgColor = 'rgba(255, 152, 0, 0.8)' // Stronger orange to match legend
+          textColor = 'white'
+          fontWeight = '600'
+        } else {
+          bgColor = 'rgba(76, 175, 80, 0.7)' // Stronger green to match legend
+          textColor = 'white'
+          fontWeight = '600'
+        }
+
+        button.style.backgroundColor = bgColor
+        button.style.color = textColor
+        button.style.fontWeight = fontWeight
+        button.style.borderRadius = '6px'
+      } else {
+        // Reset styling for dates without drinks
+        button.style.backgroundColor = ''
+        button.style.color = ''
+        button.style.fontWeight = ''
+      }
+    })
+  }, 100) // Small delay to ensure DOM is updated
+}
+
 // Initialize on mount
 onMounted(() => {
   layoutStore.initialize()
+  applyCalendarStyling()
+})
+
+// Watch for changes in calendar events and reapply styling
+watch(calendarEventDates, () => {
+  applyCalendarStyling()
+}, { deep: true })
+
+// Watch for date changes (month navigation)
+watch(selectedDate, () => {
+  applyCalendarStyling()
 })
 </script>
 
@@ -881,6 +656,51 @@ onMounted(() => {
   .drink-counter-value {
     font-size: 2rem;
   }
+}
+
+/* Calendar styling - simplified approach with JavaScript DOM manipulation */
+.drink-calendar :deep(.q-date__calendar-item) {
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  padding: 2px; /* Minimal padding to allow button to expand */
+}
+
+/* Make calendar date buttons fill the entire available space */
+.drink-calendar :deep(.q-date__calendar-item .q-btn) {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 35px !important; /* Slightly smaller for mobile */
+  min-width: 35px !important; /* Slightly smaller for mobile */
+  margin: 0 !important;
+  border-radius: 6px !important;
+  font-size: 14px !important; /* Smaller font for mobile */
+  font-weight: 500 !important;
+}
+
+/* Make the calendar itself more spacious */
+.drink-calendar :deep(.q-date__calendar) {
+  width: 100%;
+}
+
+.drink-calendar :deep(.q-date__calendar-days) {
+  height: auto;
+}
+
+.drink-calendar :deep(.q-date__calendar-item) {
+  height: 42px !important; /* Slightly smaller height for mobile */
+  min-height: 42px !important;
+}
+
+/* Hide the small event dots since we color the full cells with JavaScript */
+.drink-calendar :deep(.q-date__event) {
+  display: none !important;
+}
+
+/* Enhanced hover effects for calendar dates */
+.drink-calendar :deep(.q-date__calendar-item .q-btn:hover) {
+  transform: scale(1.02) !important; /* Reduced scale to prevent overlap */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  z-index: 1 !important;
 }
 
 /* Calendar day content styling */

@@ -8,9 +8,9 @@
 
         <!-- Layout Toggle -->
         <q-btn-group flat>
-          <q-btn 
-            flat 
-            dense 
+          <q-btn
+            flat
+            dense
             :icon="layoutStore.getLayoutMode() === 'auto' ? 'devices' : layoutStore.getLayoutMode() === 'mobile' ? 'phone_android' : 'desktop_windows'"
             :color="layoutStore.getLayoutMode() !== 'auto' ? 'primary' : 'white'"
             @click="toggleLayout"
@@ -64,9 +64,9 @@ const toggleLayout = () => {
   const modes = ['auto', 'desktop', 'mobile']
   const currentIndex = modes.indexOf(currentMode)
   const nextMode = modes[(currentIndex + 1) % modes.length]
-  
+
   layoutStore.setLayoutMode(nextMode)
-  
+
   // Refresh the current page to apply new layout
   router.go(0)
 }
@@ -83,6 +83,12 @@ const linksList = [
     caption: 'Manage your personal information',
     icon: 'person',
     link: '/personal-data',
+  },
+  {
+    title: 'Beverage Guide',
+    caption: 'Manage beverages and reference guide',
+    icon: 'local_bar',
+    link: '/beverage-guide',
   },
   {
     title: 'Docs',

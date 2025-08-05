@@ -18,27 +18,26 @@ export const useDrinksStore = defineStore('drinks', {
       }
     },
 
-    // Helper to extract volume in ml from volume string
+    // Helper to extract volume in ml from volume string (ml only)
     extractVolumeInMl: () => {
       return (volumeString) => {
+        if (!volumeString || typeof volumeString !== 'string') {
+          return 0
+        }
+
         // If it's just a number, assume it's ml
         const trimmed = volumeString.trim()
         if (/^\d+(\.\d+)?$/.test(trimmed)) {
           return parseFloat(trimmed)
         }
 
-        // Extract ml from strings like "12 fl oz (355ml)" or "355ml"
-        const mlMatch = volumeString.match(/\((\d+(?:\.\d+)?)ml\)|(\d+(?:\.\d+)?)\s*ml/i)
+        // Extract ml from strings like "355ml" or "355 ml"
+        const mlMatch = volumeString.match(/(\d+(?:\.\d+)?)\s*ml/i)
         if (mlMatch) {
-          return parseFloat(mlMatch[1] || mlMatch[2])
+          return parseFloat(mlMatch[1])
         }
 
-        // Convert fl oz to ml if no ml found (1 fl oz = 29.5735 ml)
-        const flOzMatch = volumeString.match(/(\d+(?:\.\d+)?)\s*fl\s*oz/i)
-        if (flOzMatch) {
-          return parseFloat(flOzMatch[1]) * 29.5735
-        }
-
+        // Return 0 if no valid ml format found
         return 0
       }
     },
@@ -203,22 +202,20 @@ export const useDrinksStore = defineStore('drinks', {
     getOriginalBeverages: () => {
       // Helper functions (duplicated to avoid circular reference issues)
       const extractVolumeInMl = (volumeString) => {
+        if (!volumeString || typeof volumeString !== 'string') {
+          return 0
+        }
+
         // If it's just a number, assume it's ml
         const trimmed = volumeString.trim()
         if (/^\d+(\.\d+)?$/.test(trimmed)) {
           return parseFloat(trimmed)
         }
 
-        // Extract ml from strings like "12 fl oz (355ml)" or "355ml"
-        const mlMatch = volumeString.match(/\((\d+(?:\.\d+)?)ml\)|(\d+(?:\.\d+)?)\s*ml/i)
+        // Extract ml from strings like "355ml" or "355 ml"
+        const mlMatch = volumeString.match(/(\d+(?:\.\d+)?)\s*ml/i)
         if (mlMatch) {
-          return parseFloat(mlMatch[1] || mlMatch[2])
-        }
-
-        // Convert fl oz to ml if no ml found (1 fl oz = 29.5735 ml)
-        const flOzMatch = volumeString.match(/(\d+(?:\.\d+)?)\s*fl\s*oz/i)
-        if (flOzMatch) {
-          return parseFloat(flOzMatch[1]) * 29.5735
+          return parseFloat(mlMatch[1])
         }
 
         return 0

@@ -4,7 +4,7 @@ import { ref } from 'vue'
 export const useLayoutStore = defineStore('layout', () => {
   // Layout preference: 'auto', 'desktop', 'mobile'
   const layoutMode = ref('auto')
-  
+
   // Initialize from localStorage
   const initialize = () => {
     const saved = localStorage.getItem('drink-counter-layout-mode')
@@ -12,7 +12,7 @@ export const useLayoutStore = defineStore('layout', () => {
       layoutMode.value = saved
     }
   }
-  
+
   // Set layout mode
   const setLayoutMode = (mode) => {
     if (['auto', 'desktop', 'mobile'].includes(mode)) {
@@ -20,10 +20,10 @@ export const useLayoutStore = defineStore('layout', () => {
       localStorage.setItem('drink-counter-layout-mode', mode)
     }
   }
-  
+
   // Get current layout mode
   const getLayoutMode = () => layoutMode.value
-  
+
   // Check if should use mobile layout
   const shouldUseMobileLayout = (screenSize) => {
     if (layoutMode.value === 'mobile') return true
@@ -31,7 +31,7 @@ export const useLayoutStore = defineStore('layout', () => {
     // Auto mode - use screen size
     return screenSize.lt.md
   }
-  
+
   return {
     layoutMode,
     initialize,
