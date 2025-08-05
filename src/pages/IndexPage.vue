@@ -33,8 +33,49 @@
           v-model="selectedDate"
           :options="optionsFn"
           @update:model-value="onDateSelect"
+          :events="calendarEventDates"
           class="full-width drink-calendar"
-        />
+        >
+          <template v-slot:default="{ scope }">
+            <div 
+              :class="getDayClass(scope.timestamp.date)"
+              class="calendar-day-content"
+            >
+              {{ scope.timestamp.day }}
+              <div 
+                v-if="getDrinkCountForDate(scope.timestamp.date) > 0"
+                :class="getDrinkIndicatorClass(getDrinkCountForDate(scope.timestamp.date))"
+                class="drink-indicator"
+              >
+                {{ getDrinkCountForDate(scope.timestamp.date) }}
+              </div>
+            </div>
+          </template>
+        </q-date>
+        
+        <!-- Calendar Legend -->
+        <div class="row q-gutter-sm q-mt-md justify-center">
+          <div class="row items-center">
+            <div class="calendar-legend-dot bg-grey-4"></div>
+            <span class="text-caption q-ml-xs">No drinks</span>
+          </div>
+          <div class="row items-center">
+            <div class="calendar-legend-dot bg-green-4"></div>
+            <span class="text-caption q-ml-xs">1-2 drinks</span>
+          </div>
+          <div class="row items-center">
+            <div class="calendar-legend-dot bg-yellow-6"></div>
+            <span class="text-caption q-ml-xs">3-4 drinks</span>
+          </div>
+          <div class="row items-center">
+            <div class="calendar-legend-dot bg-orange-6"></div>
+            <span class="text-caption q-ml-xs">5-6 drinks</span>
+          </div>
+          <div class="row items-center">
+            <div class="calendar-legend-dot bg-red-6"></div>
+            <span class="text-caption q-ml-xs">7+ drinks</span>
+          </div>
+        </div>
       </q-card-section>
     </q-card>
 
@@ -601,6 +642,24 @@ const currentMonthStats = computed(() => {
   return drinksStore.getMonthStatistics(year, month)
 })
 
+const calendarEventDates = computed(() => {
+  const events = []
+  const allData = drinksStore.getAllData
+
+  Object.keys(allData).forEach(dateKey => {
+    const drinkCount = drinksStore.getDrinkCount(dateKey)
+    if (drinkCount > 0) {
+      // Convert date format from YYYY/MM/DD to YYYY/MM/DD for q-date
+      const dateParts = dateKey.split('/')
+      const formattedDate = `${dateParts[0]}/${dateParts[1].padStart(2, '0')}/${dateParts[2].padStart(2, '0')}`
+      
+      events.push(formattedDate)
+    }
+  })
+
+  return events
+})
+
 const hasPersonalData = computed(() => {
   return personalDataStore.isDataComplete()
 })
@@ -639,6 +698,29 @@ const formatSelectedDate = computed(() => {
 // Methods
 const onDateSelect = (newDate) => {
   selectedDate.value = newDate
+}
+
+// Calendar color coding helper methods
+const getDrinkCountForDate = (dateString) => {
+  // Convert from YYYY-MM-DD to YYYY/MM/DD format
+  const formattedDate = dateString.replace(/-/g, '/')
+  return drinksStore.getDrinkCount(formattedDate)
+}
+
+const getDayClass = (dateString) => {
+  const drinkCount = getDrinkCountForDate(dateString)
+  if (drinkCount === 0) return 'calendar-day-none'
+  if (drinkCount <= 2) return 'calendar-day-low'
+  if (drinkCount <= 4) return 'calendar-day-medium'
+  if (drinkCount <= 6) return 'calendar-day-high'
+  return 'calendar-day-very-high'
+}
+
+const getDrinkIndicatorClass = (drinkCount) => {
+  if (drinkCount <= 2) return 'drink-indicator-green'
+  if (drinkCount <= 4) return 'drink-indicator-yellow'
+  if (drinkCount <= 6) return 'drink-indicator-orange'
+  return 'drink-indicator-red'
 }
 
 const incrementCounter = () => {
@@ -801,5 +883,84 @@ onMounted(() => {
   .drink-calendar {
     font-size: 14px;
   }
+}
+
+/* Calendar day content styling */
+.calendar-day-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+/* Background colors for different drink levels */
+.calendar-day-none {
+  background-color: transparent;
+}
+
+.calendar-day-low {
+  background-color: rgba(76, 175, 80, 0.15) !important; /* Light green */
+}
+
+.calendar-day-medium {
+  background-color: rgba(255, 193, 7, 0.2) !important; /* Light yellow */
+}
+
+.calendar-day-high {
+  background-color: rgba(255, 152, 0, 0.25) !important; /* Light orange */
+}
+
+.calendar-day-very-high {
+  background-color: rgba(244, 67, 54, 0.25) !important; /* Light red */
+}
+
+/* Drink count indicators */
+.drink-indicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  color: white;
+  line-height: 1;
+}
+
+.drink-indicator-green {
+  background-color: #4CAF50; /* Green */
+}
+
+.drink-indicator-yellow {
+  background-color: #FF9800; /* Orange (more visible than yellow) */
+}
+
+.drink-indicator-orange {
+  background-color: #FF5722; /* Deep orange */
+}
+
+.drink-indicator-red {
+  background-color: #F44336; /* Red */
+}
+
+/* Calendar legend dots */
+.calendar-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Enhance calendar day hover effects */
+.calendar-day-content:hover {
+  opacity: 0.8;
 }
 </style>
