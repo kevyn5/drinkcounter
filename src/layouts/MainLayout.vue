@@ -6,7 +6,22 @@
 
         <q-toolbar-title> Drink Calendar</q-toolbar-title>
 
-        <div> v 1.0 </div>
+        <!-- Layout Toggle -->
+        <q-btn-group flat>
+          <q-btn 
+            flat 
+            dense 
+            :icon="layoutStore.getLayoutMode() === 'auto' ? 'devices' : layoutStore.getLayoutMode() === 'mobile' ? 'phone_android' : 'desktop_windows'"
+            :color="layoutStore.getLayoutMode() !== 'auto' ? 'primary' : 'white'"
+            @click="toggleLayout"
+          >
+            <q-tooltip>
+              Current: {{ layoutStore.getLayoutMode() === 'auto' ? 'Auto' : layoutStore.getLayoutMode() === 'mobile' ? 'Mobile' : 'Desktop' }} Layout
+            </q-tooltip>
+          </q-btn>
+        </q-btn-group>
+
+        <div class="q-ml-md"> v 1.1 </div>
       </q-toolbar>
     </q-header>
 
@@ -30,8 +45,31 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import NavigationLink from 'components/NavigationLink.vue'
+import { useLayoutStore } from 'src/stores/layout-store'
+
+const router = useRouter()
+const layoutStore = useLayoutStore()
+
+// Initialize layout store
+onMounted(() => {
+  layoutStore.initialize()
+})
+
+// Toggle layout mode
+const toggleLayout = () => {
+  const currentMode = layoutStore.getLayoutMode()
+  const modes = ['auto', 'desktop', 'mobile']
+  const currentIndex = modes.indexOf(currentMode)
+  const nextMode = modes[(currentIndex + 1) % modes.length]
+  
+  layoutStore.setLayoutMode(nextMode)
+  
+  // Refresh the current page to apply new layout
+  router.go(0)
+}
 
 const linksList = [
   {

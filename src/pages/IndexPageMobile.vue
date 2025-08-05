@@ -1,8 +1,30 @@
 <template>
   <q-page class="q-pa-sm q-pa-md-md">
-    <!-- Header -->
+    <!-- Header with Layout Toggle -->
     <div class="q-mb-sm q-mb-md-md">
-      <h4 class="text-center q-my-sm q-my-md-md">Drink Counter Calendar</h4>
+      <div class="row items-center justify-between">
+        <div class="col">
+          <h4 class="text-center q-my-sm q-my-md-md">Drink Counter Calendar</h4>
+        </div>
+        <div class="col-auto">
+          <!-- Layout Toggle -->
+          <q-btn-group flat class="q-mr-sm">
+            <q-btn 
+              flat 
+              dense 
+              :icon="layoutStore.getLayoutMode() === 'auto' ? 'devices' : layoutStore.getLayoutMode() === 'mobile' ? 'phone_android' : 'desktop_windows'"
+              :color="layoutStore.getLayoutMode() !== 'auto' ? 'primary' : 'grey-6'"
+              @click="toggleLayout"
+              size="sm"
+            >
+              <q-tooltip>
+                Layout: {{ layoutStore.getLayoutMode() === 'auto' ? 'Auto' : layoutStore.getLayoutMode() === 'mobile' ? 'Mobile' : 'Desktop' }}
+                <br>Click to switch
+              </q-tooltip>
+            </q-btn>
+          </q-btn-group>
+        </div>
+      </div>
     </div>
 
     <!-- Main Content Container -->
@@ -543,3 +565,239 @@
     </q-dialog>
   </q-page>
 </template>
+
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue'
+import { useDrinksStore } from 'src/stores/drinks-store'
+import { usePersonalDataStore } from 'src/stores/personal-data-store'
+import { useLayoutStore } from 'src/stores/layout-store'
+import { date } from 'quasar'
+
+// Store instances
+const drinksStore = useDrinksStore()
+const personalDataStore = usePersonalDataStore()
+const layoutStore = useLayoutStore()
+
+// Initialize layout store
+onMounted(() => {
+  layoutStore.initialize()
+})
+
+// Toggle layout function
+const toggleLayout = () => {
+  const currentMode = layoutStore.getLayoutMode()
+  const modes = ['auto', 'desktop', 'mobile']
+  const currentIndex = modes.indexOf(currentMode)
+  const nextMode = modes[(currentIndex + 1) % modes.length]
+  
+  layoutStore.setLayoutMode(nextMode)
+  
+  // Force page refresh to apply new layout
+  window.location.reload()
+}
+
+// Reactive state
+const selectedDate = ref(date.formatDate(new Date(), 'YYYY/MM/DD'))
+const selectedBeverage = ref(null)
+const showCounterDialog = ref(false)
+const showCustomBeverageDialog = ref(false)
+const customBeverage = ref({
+  name: '',
+  volume: '',
+  alcoholPercent: 0,
+  standardDrinks: 0,
+  calories: 0,
+  description: '',
+  type: 'Custom'
+})
+const isEditingBeverage = ref(false)
+const editingBeverageId = ref(null)
+
+// Computed properties
+const beverageData = computed(() => drinksStore.beverages)
+
+const optionsFn = computed(() => {
+  return (date) => {
+    const today = new Date()
+    const checkDate = new Date(date)
+    return checkDate <= today
+  }
+})
+
+const currentDateBeverages = computed(() => {
+  const drinks = drinksStore.getDateBeverages(selectedDate.value)
+  return drinks
+})
+
+const currentDateCounter = computed(() => {
+  return drinksStore.getDrinkCount(selectedDate.value)
+})
+
+const currentMonthStats = computed(() => {
+  const currentDate = new Date(selectedDate.value)
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth() + 1
+  return drinksStore.getMonthStatistics(year, month)
+})
+
+const hasPersonalData = computed(() => {
+  return personalDataStore.isDataComplete()
+})
+
+const alcoholCaloriePercentage = computed(() => {
+  if (!hasPersonalData.value || !currentMonthStats.value) return null
+  
+  const dailyCalorieNeeds = personalDataStore.getDailyCalorieNeeds()
+  const monthDays = new Date(new Date(selectedDate.value).getFullYear(), new Date(selectedDate.value).getMonth() + 1, 0).getDate()
+  const monthlyCalorieNeeds = dailyCalorieNeeds * monthDays
+  
+  return (currentMonthStats.value.totalCalories / monthlyCalorieNeeds) * 100
+})
+
+const monthlyWeightGain = computed(() => {
+  if (!hasPersonalData.value || !currentMonthStats.value) return null
+  return personalDataStore.getMonthlyWeightGain(currentMonthStats.value.totalCalories)
+})
+
+const annualWeightGainProjection = computed(() => {
+  if (!monthlyWeightGain.value) return null
+  return {
+    kg: (monthlyWeightGain.value.kg * 12).toFixed(1),
+    calories: monthlyWeightGain.value.calories * 12
+  }
+})
+
+const currentMonthCaloriePercentage = computed(() => alcoholCaloriePercentage.value)
+const currentMonthWeightGain = computed(() => monthlyWeightGain.value)
+const currentMonthAnnualProjection = computed(() => annualWeightGainProjection.value)
+
+const formatSelectedDate = computed(() => {
+  return date.formatDate(selectedDate.value, 'dddd, MMMM D, YYYY')
+})
+
+// Methods
+const onDateSelect = (newDate) => {
+  selectedDate.value = newDate
+}
+
+const incrementCounter = () => {
+  drinksStore.incrementDrinkCount(selectedDate.value)
+}
+
+const decrementCounter = () => {
+  if (currentDateCounter.value > 0) {
+    drinksStore.decrementDrinkCount(selectedDate.value)
+  }
+}
+
+const addSelectedBeverage = () => {
+  if (selectedBeverage.value) {
+    drinksStore.addBeverage(selectedDate.value, selectedBeverage.value)
+    selectedBeverage.value = null
+  }
+}
+
+const removeSelectedBeverage = (beverageId) => {
+  drinksStore.removeBeverage(selectedDate.value, beverageId)
+}
+
+const editBeverage = (beverage) => {
+  isEditingBeverage.value = true
+  editingBeverageId.value = beverage.id
+  customBeverage.value = { ...beverage }
+  showCustomBeverageDialog.value = true
+}
+
+const openAddBeverageDialog = () => {
+  isEditingBeverage.value = false
+  editingBeverageId.value = null
+  customBeverage.value = {
+    name: '',
+    volume: '',
+    alcoholPercent: 0,
+    standardDrinks: 0,
+    calories: 0,
+    description: '',
+    type: 'Custom'
+  }
+  showCustomBeverageDialog.value = true
+}
+
+const saveCustomBeverage = () => {
+  if (customBeverage.value.name && customBeverage.value.volume && customBeverage.value.alcoholPercent >= 0) {
+    if (isEditingBeverage.value) {
+      drinksStore.updateBeverage(editingBeverageId.value, customBeverage.value)
+    } else {
+      drinksStore.addCustomBeverage(customBeverage.value)
+    }
+    showCustomBeverageDialog.value = false
+  }
+}
+
+const cancelCustomBeverage = () => {
+  showCustomBeverageDialog.value = false
+}
+
+const deleteCustomBeverage = (beverageId) => {
+  drinksStore.deleteBeverage(beverageId)
+}
+
+const resetOriginalBeverages = () => {
+  drinksStore.resetOriginalBeverages()
+}
+
+// Helper methods
+const getCaloriePercentageClass = (percentage) => {
+  if (percentage > 20) return 'text-red'
+  if (percentage > 10) return 'text-orange'
+  if (percentage > 5) return 'text-yellow-8'
+  return 'text-green'
+}
+
+const getWeightGainClass = (kg) => {
+  if (kg > 2) return 'text-red'
+  if (kg > 1) return 'text-orange'
+  if (kg > 0.5) return 'text-yellow-8'
+  return 'text-green'
+}
+
+// Watch for customBeverage changes to auto-calculate standard drinks
+watch([() => customBeverage.value.volume, () => customBeverage.value.alcoholPercent], () => {
+  if (customBeverage.value.volume && customBeverage.value.alcoholPercent) {
+    const volumeMatch = customBeverage.value.volume.match(/(\d+)/);
+    if (volumeMatch) {
+      const volume = parseInt(volumeMatch[1]);
+      const standardDrinks = (volume * customBeverage.value.alcoholPercent * 0.789) / 10;
+      customBeverage.value.standardDrinks = Math.round(standardDrinks * 10) / 10;
+    }
+  }
+})
+
+// Initialize on mount
+onMounted(() => {
+  layoutStore.initialize()
+})
+</script>
+
+<style scoped>
+.drink-calendar {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  .drink-calendar {
+    font-size: 16px;
+  }
+}
+
+.drink-counter-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+@media (min-width: 768px) {
+  .drink-counter-value {
+    font-size: 2rem;
+  }
+}
+</style>

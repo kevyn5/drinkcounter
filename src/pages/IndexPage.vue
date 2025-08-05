@@ -1,7 +1,29 @@
 <template>
   <q-page class="q-pa-md">
     <div class="q-mb-md">
-      <h4 class="text-center q-my-md">Drink Counter Calendar</h4>
+      <div class="row items-center justify-between">
+        <div class="col">
+          <h4 class="text-center q-my-md">Drink Counter Calendar</h4>
+        </div>
+        <div class="col-auto">
+          <!-- Layout Toggle -->
+          <q-btn-group flat class="q-mr-md">
+            <q-btn 
+              flat 
+              dense 
+              :icon="layoutStore.getLayoutMode() === 'auto' ? 'devices' : layoutStore.getLayoutMode() === 'mobile' ? 'phone_android' : 'desktop_windows'"
+              :color="layoutStore.getLayoutMode() !== 'auto' ? 'primary' : 'grey-6'"
+              @click="toggleLayout"
+              size="sm"
+            >
+              <q-tooltip>
+                Layout: {{ layoutStore.getLayoutMode() === 'auto' ? 'Auto' : layoutStore.getLayoutMode() === 'mobile' ? 'Mobile' : 'Desktop' }}
+                <br>Click to switch
+              </q-tooltip>
+            </q-btn>
+          </q-btn-group>
+        </div>
+      </div>
     </div>
 
     <!-- Calendar Section -->
@@ -455,11 +477,31 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useDrinksStore } from 'src/stores/drinks-store'
 import { usePersonalDataStore } from 'src/stores/personal-data-store'
+import { useLayoutStore } from 'src/stores/layout-store'
 import { date } from 'quasar'
 
 // Store instances
 const drinksStore = useDrinksStore()
 const personalDataStore = usePersonalDataStore()
+const layoutStore = useLayoutStore()
+
+// Initialize layout store
+onMounted(() => {
+  layoutStore.initialize()
+})
+
+// Toggle layout function
+const toggleLayout = () => {
+  const currentMode = layoutStore.getLayoutMode()
+  const modes = ['auto', 'desktop', 'mobile']
+  const currentIndex = modes.indexOf(currentMode)
+  const nextMode = modes[(currentIndex + 1) % modes.length]
+  
+  layoutStore.setLayoutMode(nextMode)
+  
+  // Force page refresh to apply new layout
+  window.location.reload()
+}
 
 // Reactive state
 const selectedDate = ref(date.formatDate(new Date(), 'YYYY/MM/DD'))
