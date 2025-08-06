@@ -108,6 +108,12 @@ const linksList = [
     icon: 'analytics',
     link: '/statistics',
   },
+  {
+    title: 'Settings',
+    caption: 'App settings and data management',
+    icon: 'settings',
+    link: '/settings',
+  },
 ]
 
 const leftDrawerOpen = ref(false)

@@ -18,6 +18,34 @@ export const useDrinksStore = defineStore('drinks', {
       }
     },
 
+    // Calculate calories based on volume, alcohol percentage, and beverage type
+    calculateCalories: () => {
+      return (volumeMl, alcoholPercent, beverageType = 'Other') => {
+        if (!volumeMl || volumeMl <= 0 || alcoholPercent < 0) return 0
+
+        // Alcohol calories: ~7 calories per gram of pure alcohol
+        const alcoholGrams = (volumeMl * alcoholPercent * 0.789) / 100
+        const alcoholCalories = alcoholGrams * 7
+
+        // Base beverage calories per 100ml (carbs, sugars, etc.)
+        const baseBeverageCaloriesPer100ml = {
+          'Beer': 25,        // Light malts, some residual sugars
+          'Wine': 12,        // Grape sugars, acids
+          'Spirits': 0,      // Pure spirits have minimal non-alcohol calories
+          'Cocktail': 35,    // Mixed drinks often have sugars, mixers
+          'Seltzer': 2,      // Hard seltzers are low-calorie
+          'Cider': 30,       // Apple sugars
+          'Liqueur': 50,     // High sugar content
+          'Other': 20        // Default estimate
+        }
+
+        const baseCaloriesPerMl = (baseBeverageCaloriesPer100ml[beverageType] || baseBeverageCaloriesPer100ml['Other']) / 100
+        const baseCalories = volumeMl * baseCaloriesPerMl
+
+        return Math.round(alcoholCalories + baseCalories)
+      }
+    },
+
     // Helper to extract volume in ml from volume string (ml only)
     extractVolumeInMl: () => {
       return (volumeString) => {
@@ -52,9 +80,10 @@ export const useDrinksStore = defineStore('drinks', {
 
         // New format - calculate total standard drinks
         if (dateData.beverages && dateData.beverages.length > 0) {
-          return dateData.beverages.reduce((total, beverage) => {
+          const total = dateData.beverages.reduce((total, beverage) => {
             return total + (beverage.count * beverage.standardDrinks)
           }, 0)
+          return Math.round(total * 10) / 10
         }
 
         // Fallback to count if no beverages data
@@ -73,9 +102,10 @@ export const useDrinksStore = defineStore('drinks', {
 
         // New format - calculate total standard drinks
         if (dateData.beverages && dateData.beverages.length > 0) {
-          return dateData.beverages.reduce((total, beverage) => {
+          const total = dateData.beverages.reduce((total, beverage) => {
             return total + (beverage.count * beverage.standardDrinks)
           }, 0)
+          return Math.round(total * 10) / 10
         }
 
         return dateData.count || 0
@@ -114,6 +144,7 @@ export const useDrinksStore = defineStore('drinks', {
               standardDrinks = dateData.beverages.reduce((total, beverage) => {
                 return total + (beverage.count * beverage.standardDrinks)
               }, 0)
+              standardDrinks = Math.round(standardDrinks * 10) / 10
             } else {
               standardDrinks = dateData.count || 0
             }
@@ -170,6 +201,8 @@ export const useDrinksStore = defineStore('drinks', {
                   dailyCalories += beverage.count * beverage.standardDrinks * 150
                 }
               })
+              // Round the daily standard drinks to prevent floating point errors
+              dailyStandardDrinks = Math.round(dailyStandardDrinks * 10) / 10
             } else if (dateData.count) {
               dailyStandardDrinks = dateData.count
               dailyCalories = dateData.count * 150
@@ -334,7 +367,7 @@ export const useDrinksStore = defineStore('drinks', {
       }
 
       if (!beverage || !beverage.id) {
-        console.error('Invalid beverage data')
+        console.error('Invalid beverage data:', beverage)
         return
       }
 
@@ -361,6 +394,7 @@ export const useDrinksStore = defineStore('drinks', {
           name: beverage.name,
           type: beverage.type,
           standardDrinks: beverage.standardDrinks,
+          calories: beverage.calories || 0,
           count: 1
         })
       }
@@ -369,7 +403,7 @@ export const useDrinksStore = defineStore('drinks', {
       const totalStandardDrinks = dateData.beverages.reduce((total, b) => {
         return total + (b.count * b.standardDrinks)
       }, 0)
-      dateData.count = totalStandardDrinks
+      dateData.count = Math.round(totalStandardDrinks * 10) / 10
 
       this.saveToLocalStorage()
     },
@@ -400,7 +434,7 @@ export const useDrinksStore = defineStore('drinks', {
       const totalStandardDrinks = dateData.beverages.reduce((total, b) => {
         return total + (b.count * b.standardDrinks)
       }, 0)
-      dateData.count = totalStandardDrinks
+      dateData.count = Math.round(totalStandardDrinks * 10) / 10
 
       // Remove entire date entry if no drinks left
       if (dateData.count <= 0) {
@@ -441,6 +475,7 @@ export const useDrinksStore = defineStore('drinks', {
           name: 'Standard Drink',
           type: 'Generic',
           standardDrinks: 1.0,
+          calories: 150, // Standard drink calories estimate
           count: 1
         })
       }
@@ -449,7 +484,7 @@ export const useDrinksStore = defineStore('drinks', {
       const totalStandardDrinks = dateData.beverages.reduce((total, b) => {
         return total + (b.count * b.standardDrinks)
       }, 0)
-      dateData.count = totalStandardDrinks
+      dateData.count = Math.round(totalStandardDrinks * 10) / 10
 
       console.log('After increment:', { dateKey, totalStandardDrinks, dateData })
 
@@ -500,7 +535,7 @@ export const useDrinksStore = defineStore('drinks', {
           const totalStandardDrinks = dateData.beverages.reduce((total, b) => {
             return total + (b.count * b.standardDrinks)
           }, 0)
-          dateData.count = totalStandardDrinks
+          dateData.count = Math.round(totalStandardDrinks * 10) / 10
         } else {
           // No beverages left, remove the entire date entry
           delete this.drinkCounters[dateKey]
@@ -538,12 +573,10 @@ export const useDrinksStore = defineStore('drinks', {
     deleteBeverage(beverageId) {
       const index = this.beverageDatabase.findIndex(b => b.id === beverageId)
       if (index !== -1) {
-        const beverage = this.beverageDatabase[index]
-        // Only allow deletion of custom beverages
-        if (beverage.type === 'Custom') {
-          this.beverageDatabase.splice(index, 1)
-          this.saveBeveragesToLocalStorage()
-        }
+        // Allow deletion of both custom beverages and original/default beverages
+        // Original beverages can be restored via Settings > Reset to Defaults
+        this.beverageDatabase.splice(index, 1)
+        this.saveBeveragesToLocalStorage()
       }
     },
 
@@ -553,6 +586,51 @@ export const useDrinksStore = defineStore('drinks', {
       const originalBeverages = this.getOriginalBeverages
       this.beverageDatabase.unshift(...originalBeverages)
       this.saveBeveragesToLocalStorage()
+    },
+
+    resetToOriginalBeverages() {
+      // Complete reset - replace entire database with original beverages only
+      this.beverageDatabase = [...this.getOriginalBeverages]
+      this.saveBeveragesToLocalStorage()
+    },
+
+    saveAsDefaultBeverages() {
+      // Save current beverage database as the new default
+      // We'll mark them as saved defaults to distinguish from originals
+      const currentBeverages = this.beverageDatabase.map(beverage => ({
+        ...beverage,
+        isSavedDefault: true,
+        isOriginal: false // Remove original flag if it exists
+      }))
+
+      // Store as custom defaults in localStorage
+      localStorage.setItem('customDefaultBeverages', JSON.stringify(currentBeverages))
+    },
+
+    loadCustomDefaults() {
+      // Load custom defaults if they exist
+      const saved = localStorage.getItem('customDefaultBeverages')
+      if (saved) {
+        try {
+          this.beverageDatabase = JSON.parse(saved)
+          this.saveBeveragesToLocalStorage()
+          return true
+        } catch (error) {
+          console.error('Error loading custom defaults:', error)
+          return false
+        }
+      }
+      return false
+    },
+
+    hasCustomDefaults() {
+      // Check if custom defaults exist
+      return localStorage.getItem('customDefaultBeverages') !== null
+    },
+
+    clearCustomDefaults() {
+      // Remove custom defaults
+      localStorage.removeItem('customDefaultBeverages')
     },
 
     reorderBeverages(newOrder) {
@@ -571,19 +649,28 @@ export const useDrinksStore = defineStore('drinks', {
           // Ensure we have the original beverages (in case they were accidentally deleted)
           const hasOriginals = this.beverageDatabase.some(b => b.isOriginal)
           if (!hasOriginals) {
-            const originalBeverages = this.getOriginalBeverages
-            this.beverageDatabase.unshift(...originalBeverages)
-            this.saveBeveragesToLocalStorage()
+            // Check if we have custom defaults to load instead
+            if (!this.loadCustomDefaults()) {
+              // No custom defaults, use original beverages
+              const originalBeverages = this.getOriginalBeverages
+              this.beverageDatabase.unshift(...originalBeverages)
+              this.saveBeveragesToLocalStorage()
+            }
           }
         } catch (error) {
           console.error('Error loading beverage database:', error)
+          // Try to load custom defaults first
+          if (!this.loadCustomDefaults()) {
+            this.beverageDatabase = this.getOriginalBeverages
+            this.saveBeveragesToLocalStorage()
+          }
+        }
+      } else {
+        // First time - check for custom defaults first, then use original beverages
+        if (!this.loadCustomDefaults()) {
           this.beverageDatabase = this.getOriginalBeverages
           this.saveBeveragesToLocalStorage()
         }
-      } else {
-        // First time - initialize with original beverages
-        this.beverageDatabase = this.getOriginalBeverages
-        this.saveBeveragesToLocalStorage()
       }
     },
 

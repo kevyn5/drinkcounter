@@ -63,6 +63,29 @@
                 <span class="text-caption q-ml-xs text-grey-7">12+</span>
               </div>
             </div>
+
+            <!-- BAC Information for Selected Date -->
+            <div v-if="calculateBAC && hasPersonalData" class="q-mt-md">
+              <q-separator class="q-mb-md" />
+              <div class="text-body2 q-mb-sm text-center">Today's Estimates ({{ formatSelectedDate.split(',')[0] }})</div>
+              <div class="row q-gutter-md justify-center">
+                <div class="col-auto text-center">
+                  <div class="text-caption text-grey-6">Estimated BAC</div>
+                  <div class="text-h6 text-weight-medium text-orange">
+                    {{ calculateBAC.toFixed(3) }}%
+                  </div>
+                </div>
+                <div class="col-auto text-center">
+                  <div class="text-caption text-grey-6">Time to Clear</div>
+                  <div class="text-h6 text-weight-medium text-blue">
+                    {{ calculateClearanceTime }}
+                  </div>
+                </div>
+              </div>
+              <div class="text-caption text-grey-5 q-mt-sm text-center">
+                *Estimates based on Widmark formula. Individual metabolism varies.
+              </div>
+            </div>
           </q-card-section>
         </q-card>
 
@@ -110,9 +133,19 @@
               <div v-if="personalDataStore.isDataComplete()" class="q-mt-sm q-mt-md-md">
                 <q-separator class="q-my-sm" />
                 <div class="row q-gutter-xs q-gutter-md-md">
-                  <div class="col-4 col-md-4">
+                  <div class="col-4 col-md-3">
                     <q-card class="bg-white q-pa-xs q-pa-sm-md">
-                      <div class="text-caption text-grey-7">Daily Cal %</div>
+                      <div class="text-caption text-grey-7">BMR</div>
+                      <div class="text-body2 text-weight-bold text-blue">
+                        {{ personalDataStore.getBMR() || 0 }}
+                      </div>
+                      <div class="text-caption text-grey-5">cal/day</div>
+                    </q-card>
+                  </div>
+
+                  <div class="col-4 col-md-3">
+                    <q-card class="bg-white q-pa-xs q-pa-sm-md">
+                      <div class="text-caption text-grey-7">Month Avg %</div>
                       <div v-if="currentMonthCaloriePercentage" :class="['text-body2 text-weight-bold', getCaloriePercentageClass(currentMonthCaloriePercentage)]">
                         {{ currentMonthCaloriePercentage.toFixed(1) }}%
                       </div>
@@ -120,7 +153,7 @@
                     </q-card>
                   </div>
 
-                  <div class="col-4 col-md-4">
+                  <div class="col-4 col-md-3">
                     <q-card class="bg-white q-pa-xs q-pa-sm-md">
                       <div class="text-caption text-grey-7">Weight Gain</div>
                       <div class="text-body2 text-weight-bold text-red">
@@ -129,7 +162,7 @@
                     </q-card>
                   </div>
 
-                  <div class="col-4 col-md-4">
+                  <div class="col-4 col-md-3">
                     <q-card class="bg-white q-pa-xs q-pa-sm-md">
                       <div class="text-caption text-grey-7">Annual</div>
                       <div v-if="currentMonthAnnualProjection" :class="['text-body2 text-weight-bold', getWeightGainClass(currentMonthAnnualProjection.kg)]">
@@ -164,7 +197,7 @@
         fab
         icon="local_bar"
         color="primary"
-        @click="showCounterDialog = true"
+        @click="openCounterDialog"
         :size="$q.screen.lt.md ? 'md' : 'lg'"
       >
         <q-badge
@@ -180,13 +213,24 @@
     <!-- Counter Dialog -->
     <q-dialog v-model="showCounterDialog" persistent>
       <q-card style="min-width: 300px; max-width: 500px;">
-        <q-card-section>
+        <q-card-section class="row items-center justify-between">
           <div class="text-h6">{{ formatSelectedDate }}</div>
+          <q-btn
+            flat
+            round
+            dense
+            icon="close"
+            color="primary"
+            v-close-popup
+          />
         </q-card-section>
 
         <q-card-section>
           <div class="row items-center justify-between q-mb-md">
-            <div class="text-h4">{{ currentDateCounter }}</div>
+            <div class="row items-baseline q-gutter-sm">
+              <div class="text-h6 text-grey-7">Total Standard Drinks:</div>
+              <div class="text-h4">{{ currentDateCounter }}</div>
+            </div>
             <div class="q-gutter-sm">
               <q-btn
                 round
@@ -216,6 +260,15 @@
                 <q-btn
                   flat
                   round
+                  color="positive"
+                  icon="add"
+                  size="sm"
+                  @click="addSelectedBeverage(beverage.id)"
+                  class="q-mr-xs"
+                />
+                <q-btn
+                  flat
+                  round
                   color="negative"
                   icon="remove"
                   size="sm"
@@ -231,7 +284,6 @@
               v-model="selectedBeverage"
               :options="beverageData"
               option-label="name"
-              option-value="id"
               label="Add a beverage"
               filled
               clearable
@@ -251,7 +303,7 @@
             <q-btn
               color="primary"
               label="Add Beverage"
-              @click="addSelectedBeverage"
+              @click="() => addSelectedBeverage()"
               :disable="!selectedBeverage"
             />
           </div>
@@ -259,6 +311,51 @@
           <!-- Monthly Statistics Section -->
           <div v-if="currentMonthStats && currentMonthStats.totalStandardDrinks > 0" class="q-mt-lg">
             <q-separator class="q-mb-md" />
+
+            <!-- Personal Data Integration - Daily Statistics moved to top -->
+            <div v-if="hasPersonalData">
+              <div class="text-h6 q-mb-md">Daily Statistics</div>
+
+              <div class="row items-center q-mb-sm">
+                <div class="col-6">BMR:</div>
+                <div class="col-6 text-right text-weight-bold">
+                  {{ personalDataStore.getBMR() }} cal/day
+                  <q-tooltip class="bg-grey-8">
+                    Basal Metabolic Rate - calories needed at rest
+                  </q-tooltip>
+                </div>
+              </div>
+
+              <div class="row items-center q-mb-sm">
+                <div class="col-6">Today's Cal %:</div>
+                <div class="col-6 text-right">
+                  <span v-if="dailyAlcoholCaloriePercentage !== null" :class="getCaloriePercentageClass(dailyAlcoholCaloriePercentage)">
+                    {{ dailyAlcoholCaloriePercentage.toFixed(1) }}%
+                  </span>
+                  <span v-else>0%</span>
+                  <q-tooltip class="bg-grey-8">
+                    Alcohol calories for {{ formatSelectedDate }}<br/>
+                    vs daily needs: {{ personalDataStore.getDailyCalorieNeeds() }} cal/day
+                  </q-tooltip>
+                </div>
+              </div>
+
+              <div class="row items-center">
+                <div class="col-6">Today's Calories:</div>
+                <div class="col-6 text-right">
+                  <span>{{ todaysCalories }} cal</span>
+                  <q-tooltip v-if="todaysCalories > 0"
+                    class="bg-grey-8">
+                    Calories consumed from alcoholic beverages today<br/>
+                    Based on beverage calorie content and drink counts
+                  </q-tooltip>
+                </div>
+              </div>
+
+              <q-separator class="q-my-md" />
+            </div>
+
+            <!-- Monthly Statistics moved below daily -->
             <div class="text-h6 q-mb-md">This Month's Statistics</div>
 
             <div class="row items-center q-mb-sm">
@@ -281,25 +378,25 @@
               <div class="col-6 text-right text-weight-bold">{{ currentMonthStats.daysWithDrinks }}</div>
             </div>
 
-            <!-- Personal Data Integration -->
+            <!-- Monthly personal data calculations -->
             <div v-if="hasPersonalData">
-              <q-separator class="q-my-md" />
-
               <div class="row items-center q-mb-sm">
-                <div class="col-6">Daily Calorie %:</div>
+                <div class="col-6">Month Avg Cal %:</div>
                 <div class="col-6 text-right">
                   <span v-if="alcoholCaloriePercentage" :class="getCaloriePercentageClass(alcoholCaloriePercentage)">
                     {{ alcoholCaloriePercentage.toFixed(1) }}%
                   </span>
                   <span v-else>0%</span>
                   <q-tooltip v-if="alcoholCaloriePercentage" class="bg-grey-8">
-                    Based on your BMR of {{ personalDataStore.getDailyCalorieNeeds() }} calories/day
+                    Monthly average alcohol calorie percentage<br/>
+                    Based on your TDEE of {{ personalDataStore.getDailyCalorieNeeds() }} calories/day<br/>
+                    (BMR: {{ personalDataStore.getBMR() }} × 1.375 activity factor)
                   </q-tooltip>
                 </div>
               </div>
 
-              <div class="row items-center q-mb-sm">
-                <div class="col-6">Weight Gain:</div>
+              <div class="row items-center">
+                <div class="col-6">Weight Gain (This Month):</div>
                 <div class="col-6 text-right">
                   <span v-if="monthlyWeightGain">{{ monthlyWeightGain.kg }} kg</span>
                   <span v-else>0 kg</span>
@@ -310,14 +407,7 @@
                     Based on: 7700 calories = 1 kg fat
                   </q-tooltip>
                 </div>
-              </div>
-
-              <div class="row items-center">
-                <div class="col-6">Weight Gain:</div>
-                <div class="col-6 text-right">
-                  <span v-if="monthlyWeightGain">{{ monthlyWeightGain.kg }} kg</span>
-                  <span v-else>0 kg</span>
-                </div>
+                <!-- kg/year projection kept underneath monthly statistics -->
                 <div v-if="annualWeightGainProjection && annualWeightGainProjection.kg > 2" class="text-caption q-mt-xs">
                   <div class="text-red">
                     <q-icon name="warning" class="q-mr-xs" />
@@ -342,10 +432,6 @@
             </div>
           </div>
         </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="Close" color="primary" v-close-popup />
-        </q-card-actions>
       </q-card>
     </q-dialog>
   </q-page>
@@ -473,9 +559,40 @@ const alcoholCaloriePercentage = computed(() => {
   return (currentMonthStats.value.totalCalories / monthlyCalorieNeeds) * 100
 })
 
+const dailyAlcoholCaloriePercentage = computed(() => {
+  if (!hasPersonalData.value) return null
+
+  const dailyCalorieNeeds = personalDataStore.getDailyCalorieNeeds()
+  if (!dailyCalorieNeeds || dailyCalorieNeeds === 0) return null
+
+  // Get total calories for the selected date
+  const dateBeverages = drinksStore.getDateBeverages(selectedDate.value)
+  const dailyCalories = dateBeverages.reduce((total, beverage) => {
+    const calories = beverage.calories || 0
+    const count = beverage.count || 0
+    return total + (calories * count)
+  }, 0)
+
+  if (dailyCalories === 0) return 0
+
+  const percentage = (dailyCalories / dailyCalorieNeeds) * 100
+  return isNaN(percentage) ? 0 : percentage
+})
+
 const monthlyWeightGain = computed(() => {
   if (!hasPersonalData.value || !currentMonthStats.value) return null
   return personalDataStore.getMonthlyWeightGain(currentMonthStats.value)
+})
+
+const todaysCalories = computed(() => {
+  // Use the reactive currentDateBeverages instead of calling getDateBeverages directly
+  const dailyCalories = currentDateBeverages.value.reduce((total, beverage) => {
+    const calories = beverage.calories || 0
+    const count = beverage.count || 0
+    return total + (calories * count)
+  }, 0)
+
+  return dailyCalories
 })
 
 const annualWeightGainProjection = computed(() => {
@@ -491,8 +608,72 @@ const formatSelectedDate = computed(() => {
   return date.formatDate(selectedDate.value, 'dddd, MMMM D, YYYY')
 })
 
+// BAC Calculation
+const calculateBAC = computed(() => {
+  if (!hasPersonalData.value || !personalDataStore.personalData.weight || !personalDataStore.personalData.sex) {
+    return null
+  }
+
+  const drinks = currentDateCounter.value
+  if (drinks === 0) return null
+
+  // Widmark formula: BAC = (A / (r × W)) - (β × t)
+  // A = grams of alcohol consumed
+  // r = gender constant (0.68 for males, 0.55 for females)
+  // W = body weight in grams
+  // β = elimination rate (0.015 per hour)
+  // t = time elapsed (assuming recent consumption, t = 0)
+
+  const alcoholGrams = drinks * 14 // 14g per standard drink
+  const weightKg = personalDataStore.personalData.weight
+  const sex = personalDataStore.personalData.sex
+
+  let r = 0.68 // male
+  if (sex === 'female') {
+    r = 0.55
+  }
+
+  const bac = (alcoholGrams / (r * weightKg * 1000)) * 100 // Convert to percentage
+  return bac
+})
+
+const calculateClearanceTime = computed(() => {
+  const bac = calculateBAC.value
+  if (!bac) return null
+
+  // Normal liver eliminates alcohol at ~0.015% BAC per hour
+  const eliminationRate = 0.015
+  const hours = bac / eliminationRate
+
+  if (hours < 1) {
+    return `${Math.round(hours * 60)} minutes`
+  } else if (hours < 24) {
+    const wholeHours = Math.floor(hours)
+    const minutes = Math.round((hours - wholeHours) * 60)
+    return minutes > 0 ? `${wholeHours}h ${minutes}m` : `${wholeHours} hours`
+  } else {
+    const days = Math.floor(hours / 24)
+    const remainingHours = Math.round(hours % 24)
+    return `${days} day${days > 1 ? 's' : ''} ${remainingHours}h`
+  }
+})
+
 // Methods
+const openCounterDialog = () => {
+  // Ensure we have a valid date
+  if (!selectedDate.value || selectedDate.value === 'null') {
+    selectedDate.value = date.formatDate(new Date(), 'YYYY/MM/DD')
+  }
+
+  showCounterDialog.value = true
+}
+
 const onDateSelect = (newDate) => {
+  // If newDate is null, use today's date as fallback
+  if (!newDate) {
+    newDate = date.formatDate(new Date(), 'YYYY/MM/DD')
+  }
+
   selectedDate.value = newDate
   showCounterDialog.value = true
 }
@@ -507,8 +688,21 @@ const decrementCounter = () => {
   }
 }
 
-const addSelectedBeverage = () => {
-  if (selectedBeverage.value) {
+const addSelectedBeverage = (beverageId = null) => {
+  if (beverageId) {
+    // Adding a specific beverage by ID (from the + button)
+    if (beverageId === 'generic') {
+      // Handle generic "Standard Drink" - use incrementDrinkCount
+      drinksStore.incrementDrinkCount(selectedDate.value)
+    } else {
+      // Handle predefined beverages from the database
+      const beverage = beverageData.value.find(b => b.id === beverageId)
+      if (beverage) {
+        drinksStore.addBeverage(selectedDate.value, beverage)
+      }
+    }
+  } else if (selectedBeverage.value) {
+    // Adding from dropdown selection (existing functionality)
     drinksStore.addBeverage(selectedDate.value, selectedBeverage.value)
     selectedBeverage.value = null
   }
@@ -536,8 +730,8 @@ const getWeightGainClass = (kg) => {
 // Watch for customBeverage changes to auto-calculate standard drinks
 watch([() => customBeverage.value.volume, () => customBeverage.value.alcoholPercent], () => {
   if (customBeverage.value.volume && customBeverage.value.alcoholPercent) {
-    // Use the store's volume extraction function for consistency
-    const volume = drinksStore.extractVolumeInMl(customBeverage.value.volume);
+    // Volume is now a number (in ml), no need to extract
+    const volume = customBeverage.value.volume;
     if (volume > 0) {
       // Standard drink formula: (Volume in ml × Alcohol % × 0.789) / 100 / 10
       // 0.789 is the density of ethanol, 10g is one standard drink
@@ -560,6 +754,13 @@ const applyCalendarStyling = () => {
       eventsByDate[event.date] = event
     })
 
+    // Get the selected date for comparison
+    const currentDate = new Date(selectedDate.value)
+    const selectedYear = currentDate.getFullYear()
+    const selectedMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0')
+    const selectedDay = currentDate.getDate().toString().padStart(2, '0')
+    const selectedFullDate = `${selectedYear}/${selectedMonth}/${selectedDay}`
+
     // Find all calendar date buttons
     const dateButtons = calendarElement.querySelectorAll('.q-date__calendar-item .q-btn')
     dateButtons.forEach(button => {
@@ -571,11 +772,13 @@ const applyCalendarStyling = () => {
       if (!calendarTitle) return
 
       // Parse the current month/year (format varies by locale)
-      const currentDate = new Date(selectedDate.value)
       const year = currentDate.getFullYear()
       const month = (currentDate.getMonth() + 1).toString().padStart(2, '0')
       const day = dateText.padStart(2, '0')
       const fullDate = `${year}/${month}/${day}`
+
+      // Check if this is the selected date
+      const isSelected = fullDate === selectedFullDate
 
       // Check if this date has drink data
       const eventData = eventsByDate[fullDate]
@@ -588,19 +791,23 @@ const applyCalendarStyling = () => {
         let bgColor, textColor, fontWeight = '600'
 
         if (drinkCount > 12) {
-          bgColor = 'rgba(0, 0, 0, 0.8)' // Stronger black to match legend
+          // Black - keep black when selected (as requested)
+          bgColor = 'rgba(0, 0, 0, 0.8)'
           textColor = 'white'
           fontWeight = '700'
         } else if (drinkCount > 8) {
-          bgColor = 'rgba(244, 67, 54, 0.7)' // Stronger red to match legend
+          // Red - darker red when selected
+          bgColor = isSelected ? 'rgba(211, 47, 47, 0.9)' : 'rgba(244, 67, 54, 0.7)'
           textColor = 'white'
           fontWeight = '700'
         } else if (drinkCount > 4) {
-          bgColor = 'rgba(255, 152, 0, 0.8)' // Stronger orange to match legend
+          // Orange - darker orange when selected
+          bgColor = isSelected ? 'rgba(230, 126, 34, 0.9)' : 'rgba(255, 152, 0, 0.8)'
           textColor = 'white'
           fontWeight = '600'
         } else {
-          bgColor = 'rgba(76, 175, 80, 0.7)' // Stronger green to match legend
+          // Green - darker green when selected
+          bgColor = isSelected ? 'rgba(56, 142, 60, 0.9)' : 'rgba(76, 175, 80, 0.7)'
           textColor = 'white'
           fontWeight = '600'
         }
@@ -609,11 +816,34 @@ const applyCalendarStyling = () => {
         button.style.color = textColor
         button.style.fontWeight = fontWeight
         button.style.borderRadius = '6px'
+
+        // Force override of any Quasar classes
+        button.style.setProperty('background-color', bgColor, 'important')
+        button.style.setProperty('color', textColor, 'important')
+
+        // Add subtle border for selected dates to make them more prominent
+        if (isSelected) {
+          button.style.border = '2px solid rgba(255, 255, 255, 0.3)'
+          button.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)'
+        } else {
+          button.style.border = ''
+          button.style.boxShadow = ''
+        }
       } else {
         // Reset styling for dates without drinks
         button.style.backgroundColor = ''
         button.style.color = ''
         button.style.fontWeight = ''
+        button.style.border = ''
+        button.style.boxShadow = ''
+
+        // Apply light grey background for selected dates with no drinks
+        if (isSelected) {
+          button.style.backgroundColor = 'rgba(158, 158, 158, 0.3)' // Light grey
+          button.style.border = '2px solid rgba(117, 117, 117, 0.4)'
+          // Force override with important
+          button.style.setProperty('background-color', 'rgba(158, 158, 158, 0.3)', 'important')
+        }
       }
     })
   }, 100) // Small delay to ensure DOM is updated
@@ -675,6 +905,40 @@ watch(selectedDate, () => {
   border-radius: 6px !important;
   font-size: 14px !important; /* Smaller font for mobile */
   font-weight: 500 !important;
+}
+
+/* Override Quasar's default selected date styling to allow custom colors */
+.drink-calendar :deep(.q-date__calendar-item .q-btn.q-btn--unelevated) {
+  background: none !important;
+}
+
+.drink-calendar :deep(.q-date__calendar-item .q-btn.q-date__calendar-item--in) {
+  background: none !important;
+  color: inherit !important;
+}
+
+/* Override the default blue selection color */
+.drink-calendar :deep(.q-date__calendar-item--in .q-btn) {
+  background: none !important;
+}
+
+/* More aggressive overrides for all Quasar button states */
+.drink-calendar :deep(.q-btn.bg-primary) {
+  background: none !important;
+}
+
+.drink-calendar :deep(.q-btn.text-white) {
+  color: inherit !important;
+}
+
+/* Override any Quasar state classes that might interfere */
+.drink-calendar :deep(.q-date__calendar-item .q-btn.q-btn--actionable) {
+  background: transparent !important;
+}
+
+.drink-calendar :deep(.q-date__calendar-item .q-btn.q-date__today) {
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 /* Make the calendar itself more spacious */

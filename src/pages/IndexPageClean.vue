@@ -271,6 +271,15 @@
                 <q-btn
                   flat
                   round
+                  color="positive"
+                  icon="add"
+                  size="sm"
+                  @click="addSelectedBeverage(beverage.id)"
+                  class="q-mr-xs"
+                />
+                <q-btn
+                  flat
+                  round
                   color="negative"
                   icon="remove"
                   size="sm"
@@ -286,7 +295,6 @@
               v-model="selectedBeverage"
               :options="beverageData"
               option-label="name"
-              option-value="id"
               label="Add a beverage"
               filled
               clearable
@@ -386,12 +394,12 @@
 
             <q-input
               filled
-              v-model="customBeverage.volume"
-              label="Volume in ml (e.g., '355ml', '500ml') *"
+              v-model.number="customBeverage.volume"
+              type="number"
+              label="Volume in ml (e.g. 355, 500) *"
               lazy-rules
               :rules="[
-                val => val && val.length > 0 || 'Please enter volume',
-                val => /^\d+(\.\d+)?\s*ml$/i.test(val.trim()) || 'Please enter volume in ml format (e.g., 355ml)'
+                val => val && val > 0 || 'Please enter a valid volume in ml'
               ]"
             />
 
@@ -612,9 +620,22 @@ const decrementCounter = () => {
   }
 }
 
-const addSelectedBeverage = () => {
-  if (selectedBeverage.value) {
-    drinksStore.addBeverage(selectedDate.value, selectedBeverage.value.id)
+const addSelectedBeverage = (beverageId = null) => {
+  if (beverageId) {
+    // Adding a specific beverage by ID (from the + button)
+    if (beverageId === 'generic') {
+      // Handle generic "Standard Drink" - use incrementDrinkCount
+      drinksStore.incrementDrinkCount(selectedDate.value)
+    } else {
+      // Handle predefined beverages from the database
+      const beverage = beverageData.value.find(b => b.id === beverageId)
+      if (beverage) {
+        drinksStore.addBeverage(selectedDate.value, beverage)
+      }
+    }
+  } else if (selectedBeverage.value) {
+    // Adding from dropdown selection (existing functionality)
+    drinksStore.addBeverage(selectedDate.value, selectedBeverage.value)
     selectedBeverage.value = null
   }
 }
@@ -715,8 +736,8 @@ const getWeightGainClass = (kg) => {
 // Watch for customBeverage changes to auto-calculate standard drinks
 watch([() => customBeverage.value.volume, () => customBeverage.value.alcoholPercent], () => {
   if (customBeverage.value.volume && customBeverage.value.alcoholPercent) {
-    // Use the store's volume extraction function for consistency
-    const volume = drinksStore.extractVolumeInMl(customBeverage.value.volume);
+    // Volume is now a number (in ml), no need to extract
+    const volume = customBeverage.value.volume;
     if (volume > 0) {
       // Standard drink formula: (Volume in ml × Alcohol % × 0.789) / 100 / 10
       // 0.789 is the density of ethanol, 10g is one standard drink

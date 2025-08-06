@@ -2,13 +2,13 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const usePersonalDataStore = defineStore('personalData', () => {
-  // Personal data fields - empty by default
+  // Personal data fields - hardcoded for testing
   const personalData = ref({
-    name: '',
-    sex: '', // 'male', 'female', 'other'
-    weight: null, // in kg
-    height: null, // in cm
-    age: null // in years
+    name: 'Bob',
+    sex: 'male', // 'male', 'female', 'other'
+    weight: 80, // in kg
+    height: 175, // in cm
+    age: 17 // in years
   })
 
   // Actions
@@ -35,8 +35,15 @@ export const usePersonalDataStore = defineStore('personalData', () => {
         personalData.value = { ...personalData.value, ...parsed }
         console.log('Personal data after loading:', personalData.value)
       } else {
-        // If no stored data, leave fields empty for user to fill
-        console.log('No stored personal data found, leaving fields empty')
+        // If no stored data, use hardcoded test data
+        console.log('No stored personal data found, using hardcoded test data')
+        personalData.value = {
+          name: 'Bob',
+          sex: 'male',
+          weight: 80,
+          height: 175,
+          age: 17
+        }
       }
     } catch (error) {
       console.error('Failed to load personal data from localStorage:', error)
@@ -176,6 +183,33 @@ export const usePersonalDataStore = defineStore('personalData', () => {
     loadFromStorage()
   }
 
+  // Calculate BMR (Basal Metabolic Rate) only
+  const getBMR = () => {
+    if (!personalData.value.weight || !personalData.value.height || !personalData.value.age || !personalData.value.sex) {
+      return null
+    }
+
+    const weight = personalData.value.weight
+    const height = personalData.value.height
+    const age = personalData.value.age
+    const sex = personalData.value.sex
+
+    // Mifflin-St Jeor Equation for BMR
+    let bmr
+    if (sex === 'male') {
+      bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5
+    } else if (sex === 'female') {
+      bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161
+    } else {
+      // For 'other', use average of male/female calculations
+      const maleBmr = (10 * weight) + (6.25 * height) - (5 * age) + 5
+      const femaleBmr = (10 * weight) + (6.25 * height) - (5 * age) - 161
+      bmr = (maleBmr + femaleBmr) / 2
+    }
+
+    return Math.round(bmr)
+  }
+
   // Getters
   const getPersonalData = () => personalData.value
   const isDataComplete = () => {
@@ -198,6 +232,7 @@ export const usePersonalDataStore = defineStore('personalData', () => {
     // Getters
     getPersonalData,
     getBMI,
+    getBMR,
     isDataComplete,
     getDailyCalorieNeeds,
     getMonthlyAlcoholCaloriePercentage,

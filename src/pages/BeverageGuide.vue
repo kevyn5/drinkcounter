@@ -41,6 +41,9 @@
                 <template v-if="col.name === 'name'">
                   <div class="text-weight-medium">{{ col.value }}</div>
                 </template>
+                <template v-else-if="col.name === 'volume'">
+                  <q-badge color="grey" :label="col.value + ' ml'" />
+                </template>
                 <template v-else-if="col.name === 'alcoholPercent'">
                   <q-badge color="blue" :label="`${col.value}%`" />
                 </template>
@@ -64,14 +67,20 @@
                       @click="editBeverage(props.row)"
                     />
                     <q-btn
-                      v-if="props.row.type === 'Custom'"
                       flat
                       round
                       color="negative"
                       icon="delete"
                       size="sm"
                       @click="deleteCustomBeverage(props.row.id)"
-                    />
+                    >
+                      <q-tooltip v-if="props.row.isOriginal">
+                        Delete default beverage (can be restored via Settings)
+                      </q-tooltip>
+                      <q-tooltip v-else>
+                        Delete custom beverage
+                      </q-tooltip>
+                    </q-btn>
                   </div>
                 </template>
                 <template v-else>
@@ -92,12 +101,18 @@
             outline
           />
           <q-btn
-            color="orange"
-            icon="refresh"
-            label="Reset to Defaults"
-            @click="resetOriginalBeverages"
+            color="positive"
+            icon="bookmark"
+            label="Save as Default"
+            @click="saveAsDefaultBeverages"
             outline
           />
+        </div>
+
+        <div class="q-mt-sm text-center">
+          <div class="text-caption text-grey-6">
+            Save as Default: Saves current beverage list as your personal defaults
+          </div>
         </div>
       </q-card-section>
     </q-card>
@@ -121,12 +136,12 @@
 
             <q-input
               filled
-              v-model="customBeverage.volume"
-              label="Volume in ml (e.g., '355ml', '500ml') *"
+              v-model.number="customBeverage.volume"
+              type="number"
+              label="Volume in ml (e.g. 355, 500) *"
               lazy-rules
               :rules="[
-                val => val && val.length > 0 || 'Please enter volume',
-                val => /^\d+(\.\d+)?\s*ml$/i.test(val.trim()) || 'Please enter volume in ml format (e.g., 355ml)'
+                val => val && val > 0 || 'Please enter a valid volume in ml'
               ]"
             />
 
@@ -146,6 +161,14 @@
               ]"
             />
 
+            <q-select
+              filled
+              v-model="customBeverage.type"
+              :options="beverageTypeOptions"
+              label="Beverage Type"
+              hint="Helps estimate calories more accurately"
+            />
+
             <q-input
               filled
               v-model.number="customBeverage.standardDrinks"
@@ -162,8 +185,22 @@
               type="number"
               label="Calories per serving"
               min="0"
-              hint="Leave empty to estimate automatically"
-            />
+              hint="Enter actual calories from label, or leave empty to estimate"
+              @blur="onCaloriesBlur"
+            >
+              <template v-slot:append>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="refresh"
+                  @click="calculateEstimatedCalories"
+                  color="primary"
+                >
+                  <q-tooltip>Recalculate estimated calories</q-tooltip>
+                </q-btn>
+              </template>
+            </q-input>
 
             <q-input
               filled
@@ -190,11 +227,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
+import { useQuasar } from 'quasar'
 import { useDrinksStore } from 'src/stores/drinks-store'
 
 // Store instances
 const drinksStore = useDrinksStore()
+const $q = useQuasar()
 
 // Reactive state
 const showCustomBeverageDialog = ref(false)
@@ -210,6 +249,20 @@ const customBeverage = ref({
 const isEditingBeverage = ref(false)
 const editingBeverageId = ref(null)
 const draggedIndex = ref(null)
+const refreshKey = ref(0)
+
+// Beverage type options for better calorie estimation
+const beverageTypeOptions = [
+  'Beer',
+  'Wine',
+  'Spirits',
+  'Cocktail',
+  'Seltzer',
+  'Cider',
+  'Liqueur',
+  'Other',
+  'Custom'
+]
 
 // Table columns
 const beverageColumns = [
@@ -265,7 +318,39 @@ const beverageColumns = [
 ]
 
 // Computed properties
-const beverageData = computed(() => drinksStore.beverages)
+const beverageData = computed(() => {
+  // Use refreshKey to force reactivity when needed
+  refreshKey.value
+  return drinksStore.beverages.map(beverage => {
+    // Ensure volume is displayed as a number (extract from string if needed)
+    const volumeNumber = typeof beverage.volume === 'string' ?
+      drinksStore.extractVolumeInMl(beverage.volume) : beverage.volume
+
+    // Ensure standard drinks are calculated if missing
+    let standardDrinks = beverage.standardDrinks
+    if (!standardDrinks || standardDrinks === 0) {
+      if (volumeNumber > 0 && beverage.alcoholPercent >= 0) {
+        const pureAlcoholGrams = (volumeNumber * beverage.alcoholPercent * 0.789) / 100
+        standardDrinks = Math.round((pureAlcoholGrams / 10) * 10) / 10
+      }
+    }
+
+    // Ensure calories are reasonable - recalculate if they seem off or missing
+    let calories = beverage.calories
+    if (!calories || calories === 0) {
+      if (volumeNumber > 0) {
+        calories = drinksStore.calculateCalories(volumeNumber, beverage.alcoholPercent || 0, beverage.type || 'Other')
+      }
+    }
+
+    return {
+      ...beverage,
+      volume: volumeNumber,
+      standardDrinks: standardDrinks || 0,
+      calories: calories || 0
+    }
+  })
+})
 
 // Methods
 const onRowDblClick = (evt, row) => {
@@ -294,8 +379,50 @@ const openAddBeverageDialog = () => {
   showCustomBeverageDialog.value = true
 }
 
+const calculateEstimatedCalories = () => {
+  const volume = customBeverage.value.volume
+  const alcoholPercent = customBeverage.value.alcoholPercent
+  const beverageType = customBeverage.value.type || 'Other'
+
+  if (volume > 0) {
+    const estimatedCalories = drinksStore.calculateCalories(volume, alcoholPercent, beverageType)
+    customBeverage.value.calories = estimatedCalories
+  }
+}
+
+const onCaloriesBlur = () => {
+  // If user cleared the calories field, auto-calculate
+  if (!customBeverage.value.calories || customBeverage.value.calories === 0) {
+    calculateEstimatedCalories()
+  }
+}
+
 const saveCustomBeverage = () => {
   if (customBeverage.value.name && customBeverage.value.volume && customBeverage.value.alcoholPercent >= 0) {
+    // Ensure standard drinks are calculated if not provided
+    if (!customBeverage.value.standardDrinks || customBeverage.value.standardDrinks === 0) {
+      const volume = customBeverage.value.volume
+      const alcoholPercent = customBeverage.value.alcoholPercent
+      if (volume > 0 && alcoholPercent >= 0) {
+        // Standard drink formula: (Volume in ml × Alcohol % × 0.789) / 100 / 10
+        // 0.789 is the density of ethanol, 10g is one standard drink
+        const pureAlcoholGrams = (volume * alcoholPercent * 0.789) / 100
+        const standardDrinks = pureAlcoholGrams / 10
+        customBeverage.value.standardDrinks = Math.round(standardDrinks * 10) / 10
+      }
+    }
+
+    // Estimate calories if not provided using the improved calculation
+    if (!customBeverage.value.calories || customBeverage.value.calories === 0) {
+      const volume = customBeverage.value.volume
+      const alcoholPercent = customBeverage.value.alcoholPercent
+      const beverageType = customBeverage.value.type || 'Other'
+
+      if (volume > 0) {
+        customBeverage.value.calories = drinksStore.calculateCalories(volume, alcoholPercent, beverageType)
+      }
+    }
+
     if (isEditingBeverage.value) {
       drinksStore.updateBeverage(editingBeverageId.value, customBeverage.value)
     } else {
@@ -310,11 +437,76 @@ const cancelCustomBeverage = () => {
 }
 
 const deleteCustomBeverage = (beverageId) => {
-  drinksStore.deleteBeverage(beverageId)
+  // Find the beverage to determine if it's a custom or default beverage
+  const beverage = drinksStore.beverages.find(b => b.id === beverageId)
+  if (!beverage) return
+
+  const isOriginal = beverage.isOriginal
+  const beverageName = beverage.name
+
+  $q.dialog({
+    title: 'Confirm Delete',
+    message: isOriginal
+      ? `Delete "${beverageName}"? This default beverage can be restored via Settings > Reset to Defaults.`
+      : `Delete custom beverage "${beverageName}"? This action cannot be undone.`,
+    persistent: true,
+    ok: {
+      push: true,
+      color: 'negative',
+      label: 'Delete'
+    },
+    cancel: {
+      push: true,
+      color: 'grey',
+      label: 'Cancel'
+    }
+  }).onOk(() => {
+    drinksStore.deleteBeverage(beverageId)
+    // Force table refresh
+    refreshKey.value++
+    // Use nextTick to ensure the UI updates after the store change
+    nextTick(() => {
+      $q.notify({
+        type: 'positive',
+        message: `"${beverageName}" has been deleted`,
+        timeout: 2000
+      })
+    })
+  })
 }
 
-const resetOriginalBeverages = () => {
-  drinksStore.resetOriginalBeverages()
+const saveAsDefaultBeverages = () => {
+  $q.dialog({
+    title: 'Save as Default',
+    message: 'This will save your current beverage list as your personal defaults. These will be loaded when you start the app in the future. Continue?',
+    persistent: true,
+    ok: {
+      push: true,
+      color: 'positive',
+      label: 'Save as Default'
+    },
+    cancel: {
+      push: true,
+      color: 'grey',
+      label: 'Cancel'
+    }
+  }).onOk(() => {
+    try {
+      drinksStore.saveAsDefaultBeverages()
+      $q.notify({
+        type: 'positive',
+        message: 'Current beverage list saved as your personal defaults',
+        timeout: 3000
+      })
+    } catch (error) {
+      console.error('Error saving default beverages:', error)
+      $q.notify({
+        type: 'negative',
+        message: 'Error saving default beverages',
+        timeout: 3000
+      })
+    }
+  })
 }
 
 // Drag and drop methods
@@ -346,17 +538,28 @@ const onDragEnd = (evt) => {
   draggedIndex.value = null
 }
 
-// Watch for customBeverage changes to auto-calculate standard drinks
-watch([() => customBeverage.value.volume, () => customBeverage.value.alcoholPercent], () => {
+// Watch for customBeverage changes to auto-calculate standard drinks and calories
+watch([() => customBeverage.value.volume, () => customBeverage.value.alcoholPercent, () => customBeverage.value.type], () => {
   if (customBeverage.value.volume && customBeverage.value.alcoholPercent) {
-    // Use the store's volume extraction function for consistency
-    const volume = drinksStore.extractVolumeInMl(customBeverage.value.volume);
+    // Volume is now a number (in ml), no need to extract
+    const volume = customBeverage.value.volume;
+    const alcoholPercent = customBeverage.value.alcoholPercent;
+
     if (volume > 0) {
-      // Standard drink formula: (Volume in ml × Alcohol % × 0.789) / 100 / 10
-      // 0.789 is the density of ethanol, 10g is one standard drink
-      const pureAlcoholGrams = (volume * customBeverage.value.alcoholPercent * 0.789) / 100;
+      // Calculate standard drinks
+      const pureAlcoholGrams = (volume * alcoholPercent * 0.789) / 100;
       const standardDrinks = pureAlcoholGrams / 10;
       customBeverage.value.standardDrinks = Math.round(standardDrinks * 10) / 10;
+
+      // Update calories only if they haven't been manually set by the user
+      // (we'll consider it manually set if it's significantly different from auto-calculation)
+      const estimatedCalories = drinksStore.calculateCalories(volume, alcoholPercent, customBeverage.value.type || 'Other');
+      const currentCalories = customBeverage.value.calories || 0;
+
+      // If calories are empty or very close to the previous auto-calculation, update them
+      if (currentCalories === 0 || Math.abs(currentCalories - estimatedCalories) < Math.max(10, estimatedCalories * 0.2)) {
+        customBeverage.value.calories = estimatedCalories;
+      }
     }
   }
 })
