@@ -221,8 +221,43 @@
     <q-dialog v-model="showCounterDialog" persistent>
       <q-card style="min-width: 300px; max-width: 500px;">
         <q-card-section>
-          <div class="text-h6">{{ formatSelectedDate }}</div>
-        </q-card-section>        <q-card-section>
+          <div class="row items-center justify-between">
+            <div class="text-h6">{{ formatSelectedDate }}</div>
+            <q-btn
+              flat
+              round
+              dense
+              icon="close"
+              color="grey-6"
+              v-close-popup
+            />
+          </div>
+        </q-card-section>
+
+        <!-- BAC Information in Dialog -->
+        <q-card-section v-if="calculateBAC && hasPersonalData" class="q-pt-none">
+          <q-separator class="q-mb-md" />
+          <div class="text-subtitle2 q-mb-sm text-center text-weight-medium">Blood Alcohol Estimates</div>
+          <div class="row q-gutter-lg justify-center">
+            <div class="col-auto text-center">
+              <div class="text-caption text-grey-6">Estimated BAC</div>
+              <div class="text-h6 text-weight-medium text-orange">
+                {{ calculateBAC.toFixed(3) }}%
+              </div>
+            </div>
+            <div class="col-auto text-center">
+              <div class="text-caption text-grey-6">Time to Clear</div>
+              <div class="text-h6 text-weight-medium text-blue">
+                {{ calculateClearanceTime }}
+              </div>
+            </div>
+          </div>
+          <div class="text-caption text-grey-5 q-mt-sm text-center">
+            *Estimates based on Widmark formula. Individual metabolism varies.
+          </div>
+        </q-card-section>
+
+        <q-card-section>
           <div class="row items-center justify-between q-mb-md">
             <div class="row items-baseline q-gutter-sm">
               <div class="text-h6 text-grey-7">Total Standard Drinks:</div>

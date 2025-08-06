@@ -2,13 +2,13 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const usePersonalDataStore = defineStore('personalData', () => {
-  // Personal data fields - hardcoded for testing
+  // Personal data fields - defaults to empty for user input
   const personalData = ref({
-    name: 'Bob',
-    sex: 'male', // 'male', 'female', 'other'
-    weight: 80, // in kg
-    height: 175, // in cm
-    age: 17 // in years
+    name: '',
+    sex: '', // 'male', 'female', 'other'
+    weight: null, // in kg
+    height: null, // in cm
+    age: null // in years
   })
 
   // Actions
@@ -35,14 +35,14 @@ export const usePersonalDataStore = defineStore('personalData', () => {
         personalData.value = { ...personalData.value, ...parsed }
         console.log('Personal data after loading:', personalData.value)
       } else {
-        // If no stored data, use hardcoded test data
-        console.log('No stored personal data found, using hardcoded test data')
+        // If no stored data, use empty defaults for user to fill
+        console.log('No stored personal data found, using empty defaults')
         personalData.value = {
-          name: 'Bob',
-          sex: 'male',
-          weight: 80,
-          height: 175,
-          age: 17
+          name: '',
+          sex: '',
+          weight: null,
+          height: null,
+          age: null
         }
       }
     } catch (error) {
